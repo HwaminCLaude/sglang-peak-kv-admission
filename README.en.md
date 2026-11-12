@@ -68,7 +68,7 @@ python3 tools/check_numbers.py               # every marked number in the docs a
 - [Patch](patch/README.md): +<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n--> lines. It only adds one more condition on top of SGLang's own checks, so it can hold a request back but never admits one that SGLang would have held back ([commit on a fork](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d))
 - [Technical summary](docs/TECHNICAL_SUMMARY.md), 10 minutes: results by load, comparison runs, method, hard questions, reproduction
 - [Full report](docs/REPORT.md), 40 minutes: the complete analysis and appendices
-- [Errata](docs/ERRATA.md): 34 errors and omissions in the submitted report. The 2 req/s measurements are unchanged, and 7 high-impact items change how those measurements should be read
+- [Errata](docs/ERRATA.md): 34 errors and omissions in the submitted report. The 2 req/s results it led with (goodput, retractions, TTFT p99) are unchanged, and 7 high-impact items change how those results should be read
 - [CPU tests](tests/README.md) · [Data](data/README.md) · [Experiment log](docs/EXPERIMENTS.md) · [Plan written before the main runs](docs/preregistration/plan_2026-09-13.md) (Korean)
 
 Code is under Apache-2.0, and documents and data are under CC BY 4.0 ([LICENSE](LICENSE), [LICENSE-docs](LICENSE-docs), [NOTICE](NOTICE)). This is a personal repository, not affiliated with the SGLang project.

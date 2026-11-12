@@ -68,7 +68,7 @@ python3 tools/check_numbers.py               # 문서에 마커로 표시한 수
 - [패치](patch/README.md): +<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n-->줄. 기존 검사 위에 조건을 하나 더할 뿐이라 요청을 보류할 수는 있어도, 원래 보류되던 요청을 받아들이지는 않는다([fork 커밋](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d))
 - [기술 요약](docs/TECHNICAL_SUMMARY.ko.md), 10분: 부하별 결과, 비교 실험, 평가 방법, 예상 질문, 재현 절차
 - [보고서](docs/REPORT.ko.md), 40분: 전체 분석과 부록
-- [정오표](docs/ERRATA.md): 제출한 보고서의 오류와 누락 34건. 초당 2요청 측정값은 같고, 영향이 큰 7건은 그 값을 읽는 법을 바꿨다
+- [정오표](docs/ERRATA.md): 제출한 보고서의 오류와 누락 34건. 보고서가 앞세운 초당 2요청 결과(goodput, 선점 횟수, TTFT p99)는 그대로이고, 영향이 큰 7건은 그 결과를 읽는 법을 바꿨다
 - [CPU 테스트](tests/README.md) · [데이터](data/README.md) · [실험 기록](docs/EXPERIMENTS.md) · [본 실험 전에 써 둔 계획](docs/preregistration/plan_2026-09-13.md)
 
 코드는 Apache-2.0, 문서와 데이터는 CC BY 4.0이다([LICENSE](LICENSE), [LICENSE-docs](LICENSE-docs), [NOTICE](NOTICE)). SGLang 프로젝트와 관계없는 개인 저장소다.

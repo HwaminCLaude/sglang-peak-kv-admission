@@ -1,3 +1,5 @@
+[← Front page](../README.en.md) · [한국어 대문](../README.md)
+
 # Errata: the submitted course report
 
 The course report was submitted on 2026-09-17 as an 11-page PDF made in HWP, written in Korean. It is not published in this repository. The table below lists every confirmed error and omission in it that a post-submission self-audit found. The corrected numbers were recomputed from the raw data ([data/RAW.md](../data/RAW.md)): `python3 -m analysis.headline` writes them to [`artifacts/numbers.json`](../artifacts/numbers.json), and `python3 tools/check_numbers.py` checks every number in this file against it. The corrected report is [docs/REPORT.md](REPORT.md) (English) and [docs/REPORT.ko.md](REPORT.ko.md) (Korean); the [technical summary](TECHNICAL_SUMMARY.md) summarizes it.
