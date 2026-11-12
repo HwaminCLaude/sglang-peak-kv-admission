@@ -481,7 +481,7 @@ default에서도 이미 <!--n:q2.default.wait10-->43<!--/n-->건이 10 s 넘게 
 
 q2에서 mine <!--n:q2.mine.goodput-->0.440<!--/n-->(3회)과 N=40 <!--n:q2.tuned_n40.goodput-->0.432<!--/n-->·noradix <!--n:q2.noradix.goodput-->0.435<!--/n-->(각 n=1)의 차이는 우열의 근거가 되지 않는다. 세 설정 모두 SLO <!--n:q2.mine.slo_ratio-->120/120<!--/n-->을 지키므로 차이가 전부 wall(마지막 요청의 완료 시각)에서 나오고, 비교 상대는 1회 실행이다. N=40 대비 데이터가 지지하는 우위는 goodput이 아니라 두 가지다. 부하·길이 분포가 바뀌어도 선점이 다시 생기지 않고, 압박 조건에서 TTFT 평균이 더 짧다(5.2, 표 25).
 
-**α*·N*의 선택 규칙.** 규칙은 결과를 보기 전에 사전 계획 4.3에 고정했다. 보조 SLO '요청 안 최대 정지 ≤ 5 s'(5 s 넘는 정지 0건)를 만족하는 설정 중 TTFT p99가 가장 작은 것을 고른다. 그 결과 α* = <!--n:select.alpha_star-->1.0<!--/n-->, N* = <!--n:select.n_star-->40<!--/n-->이다(`python3 -m w3.select_star`, 표 23).
+**α\*·N\*의 선택 규칙.** 규칙은 결과를 보기 전에 사전 계획 4.3에 고정했다. 보조 SLO '요청 안 최대 정지 ≤ 5 s'(5 s 넘는 정지 0건)를 만족하는 설정 중 TTFT p99가 가장 작은 것을 고른다. 그 결과 α* = <!--n:select.alpha_star-->1.0<!--/n-->, N* = <!--n:select.n_star-->40<!--/n-->이다(`python3 -m w3.select_star`, 표 23).
 
 - q2 보조 SLO 충족률은 default <!--n:q2.default.aux_slo_range_pct-->83.3–84.2<!--/n-->% → mine <!--n:q2.mine.aux_slo_pct-->100.0<!--/n-->%다.
 - default에서 5 s 넘게 멈춘 <!--n:q2.default.stall5_range-->19–20<!--/n-->건 중 <!--n:q2.default.stalled_tpot_ok_range-->14–15<!--/n-->건은 평균 TPOT SLO(60 ms)를 통과했다. 평균 TPOT SLO가 긴 정지를 잡지 못하는 맹점이다.
@@ -634,7 +634,7 @@ qps 0.35에는 플래그 OFF 실행이 없어, default 칸은 09-13 순정 3회 
 - **잡음의 크기.** 기능상 같은 q1 default ↔ ablated도 <!--n:load.q1.ablated_vs_default_pct-->−0.5<!--/n-->%이고, q2 ablated 3회 범위가 <!--n:q2.ablated.goodput_spread_pct-->1.24<!--/n-->%다. 따라서 이 goodput 차이는 1회 측정의 편차 범위다.
 - **확실한 손해는 TTFT다.** p99 <!--n:load.q1.ttft_p99_s.default-->46.2<!--/n--> → <!--n:load.q1.ttft_p99_s.mine-->53.5<!--/n--> s(<!--n:load.q1.ttft_p99_pct-->+15.9<!--/n-->%), 평균 <!--n:load.q1.ttft_mean_s.default-->13.7<!--/n--> → <!--n:load.q1.ttft_mean_s.mine-->16.2<!--/n--> s, 10 s 넘게 대기 <!--n:load.q1.wait10.default-->46<!--/n--> → <!--n:load.q1.wait10.mine-->50<!--/n-->건이다. 선점 <!--n:load.q1.retractions.default-->7<!--/n-->회가 SLO 위반을 하나도 만들지 않던 부하라, 선점을 없애도 얻을 것이 없고 입장 지연(≥ 13회)의 비용만 남는다.
 
-**표 25. 고정 제한 `--max-running-requests 40`(q2에서 고른 N*)을 다른 조건에 그대로 쓸 때 vs mine (α=1.0). d = default, N = N=40, m = mine. q2의 d·m만 3회★, 그 밖은 n=1**
+**표 25. 고정 제한 `--max-running-requests 40`(q2에서 고른 N\*)을 다른 조건에 그대로 쓸 때 vs mine (α=1.0). d = default, N = N=40, m = mine. q2의 d·m만 3회★, 그 밖은 n=1**
 
 | 조건 | goodput d / N / m | 선점 d / N / m | TTFT 평균 (s) d / N / m | TTFT p99 (s) d / N / m | 10 s 넘게 대기 d / N / m |
 |---|---|---|---|---|---|
