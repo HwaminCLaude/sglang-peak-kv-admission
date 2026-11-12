@@ -1,12 +1,31 @@
-[English](TECHNICAL_SUMMARY.md) · 한국어
+[← 대문](../README.md) · [English](TECHNICAL_SUMMARY.md) · 한국어
 
-# SGLang peak-KV admission: 장문 출력 서빙의 선점(retraction) 정지 진단과 제거
+# 기술 요약: SGLang 0.5.18의 요청 선점(retraction) 정지와 peak-KV admission 게이트
 
-초당 2요청 부하에서 SGLang 0.5.18은 긴 답변 <!--n:trace.n_requests-->120<!--/n-->개 중 <!--n:q2.default.stall5-->19<!--/n-->개를 생성 도중 <!--n:q2.default.stall_range_s-->30.8–64.8<!--/n-->초씩 멈췄다. 이 저장소는 그 정지가 기본(radix cache) 입장(admission) 경로에서 생기는 KV 선점(retraction) 때문임을 밝힌다. 그리고 SGLang에 이미 있던 정확 길이 입장 시뮬레이션을 재사용하는 플래그형 스케줄러 게이트로 정지를 없앤 뒤, 그 대가와 기존 플래그만으로 얻을 수 있는 몫까지 측정한다. 환경은 RTX 4090 한 장 위의 Qwen3-4B와 합성 장문 추론 trace이고, 측정은 <!--n:budget.runs-->53<!--/n-->회다. 이 문서의 결과 수치는 모두 저장소 안 데이터에서 계산했고, 인용한 숫자 하나하나를 스크립트로 대조한다.
+10분 분량이다. [대문](../README.md)이 2분 안에 주장을 전하고, 이 문서는 그 근거가 되는 표, 평가 방법, 대가, 예상 질문을 담는다. 전체 분석은 [보고서](REPORT.ko.md)에 있다.
+
+초당 2요청 부하에서 SGLang 0.5.18은 긴 답변 <!--n:trace.n_requests-->120<!--/n-->개 중 <!--n:q2.default.stall5-->19<!--/n-->개를 생성 도중 <!--n:q2.default.stall_range_s-->30.8–64.8<!--/n-->초씩 멈췄다(default 세 번 실행 전체의 범위). 이 저장소는 그 정지가 기본(radix cache) 입장(admission) 경로에서 생기는 KV 선점(retraction) 때문임을 밝힌다. 그리고 SGLang에 이미 있던 정확 길이 입장 시뮬레이션을 재사용하는 플래그형 스케줄러 게이트로 정지를 없앤 뒤, 그 대가와 기존 플래그만으로 얻을 수 있는 몫까지 측정한다. 환경은 RTX 4090 한 장 위의 Qwen3-4B와 합성 장문 추론 trace이고, 측정은 <!--n:budget.runs-->53<!--/n-->회다. 이 문서의 결과 수치는 모두 저장소 안 데이터에서 계산했고, 인용한 숫자 하나하나를 스크립트로 대조한다.
 
 SGLang 0.5.18 + patch (+<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n-->) · Qwen3-4B bf16 · RTX 4090 24GB · CPU-tested · Apache-2.0 / CC BY 4.0
 
 > 제출했던 과정 보고서를 정정하고 보강한 판이다. 정정 내역은 [ERRATA.md](ERRATA.md)(영문)에 있다. 이 작업은 5주짜리 LLM 추론 엔진 스터디의 개인 과제로 시작했다. [크레딧과 출처](#크레딧과-출처)를 참고한다.
+
+**대문과 이 문서의 용어 대응**
+
+| 대문의 표기 | 이 문서와 보고서의 표기 | 뜻 |
+|---|---|---|
+| 선점(retraction) | 선점, KV 선점 | 서버가 실행 중인 요청의 KV를 회수하고 그 요청을 대기열 맨 뒤로 보내는 일 |
+| 받아들이다 | 입장(admission) | 스케줄러가 대기 중인 요청을 실행하기로 하는 결정 |
+| 생성 중 멈춤, 멈춘 요청 | 정지, 멈춤 | 한 요청의 스트림에 5초 넘게 토큰이 오지 않는 구간, 그런 구간이 있는 요청 |
+| 첫 토큰까지 걸리는 시간(TTFT) | TTFT | 요청을 보낸 뒤 첫 토큰이 오기까지의 시간 |
+| 최대 토큰 간격 | 요청별 최대 토큰 간격, maxITL | 한 요청의 스트림이 가장 오래 끊긴 시간 |
+| 옵션 | 플래그 | 서버 실행 인자(`--enable-peak-kv-reservation` 등) |
+| 기본값 | default | 패치를 넣고 플래그를 끈 빌드 |
+| 패치하지 않은 SGLang | 순정, upstream | 수정하지 않은 SGLang 0.5.18 |
+| 요청 세트 | trace | 미리 만들어 둔 요청들과 그 도착 시각 |
+| 스터디 | 과정 | 이 작업이 과제로 나온 5주 LLM 추론 엔진 스터디 |
+
+`qX`는 초당 X요청, α는 남은 출력 중 게이트가 예약하는 비율, N은 `--max-running-requests`, ★는 3회 중앙값, n=1은 1회 측정, W3는 과정에서 이 장문 추론 워크로드를 부르던 이름이다.
 
 ## 요약
 
@@ -32,7 +51,7 @@ SLO는 요청별 평균 TPOT(출력 토큰당 시간) ≤ <!--n:trace.tpot_slo_m
 
 ![초당 2요청에서 요청별 타임라인: default와 패치](figures/hero_timeline.png)
 
-*초당 2요청에서 각 구성의 실행 한 번: 세 번 중 goodput이 중앙값인 실행(r2), 패널마다 n=1. 한 줄이 요청 하나이고 도착 순서로 그렸다. 첫 토큰 전 대기, 생성, 생성 도중 5초 넘는 멈춤을 보여 준다. default: <!--n:hero.default.stalled-->19<!--/n-->개 요청이 답변을 시작한 뒤 <!--n:hero.default.stall_range_s-->32.5–64.8<!--/n-->초 멈춘다. 패치: 멈춤은 <!--n:hero.mine.stalled-->0<!--/n-->건이지만, 첫 토큰까지 10초 넘게 기다린 요청이 <!--n:hero.default.wait10-->43<!--/n-->건에서 <!--n:hero.mine.wait10-->60<!--/n-->건으로 는다. 데이터: `data/derived/per_request.csv.gz`, 스크립트: `w3/figures.py`.*
+*초당 2요청에서 각 구성의 실행 한 번: 세 번 중 goodput이 중앙값인 실행(r2), 패널마다 n=1. 한 줄이 요청 하나이고 도착 순서로 그렸다. 첫 토큰 전 대기, 생성, 생성 도중 5초 넘는 멈춤을 보여 준다. default: <!--n:hero.default.stalled-->19<!--/n-->개 요청이 답변을 시작한 뒤 <!--n:hero.default.stall_range_s-->32.5–64.8<!--/n-->초 멈춘다(이 실행 하나의 범위이고, default 세 번 전체로는 <!--n:q2.default.stall_range_s-->30.8–64.8<!--/n-->초다). 패치: 멈춤은 <!--n:hero.mine.stalled-->0<!--/n-->건이지만, 첫 토큰까지 10초 넘게 기다린 요청이 <!--n:hero.default.wait10-->43<!--/n-->건에서 <!--n:hero.mine.wait10-->60<!--/n-->건으로 는다. 데이터: `data/derived/per_request.csv.gz`, 스크립트: `w3/figures.py`.*
 
 ### 숫자를 읽는 법
 
@@ -63,7 +82,7 @@ SLO는 요청별 평균 TPOT(출력 토큰당 시간) ≤ <!--n:trace.tpot_slo_m
 
 **메커니즘.** SGLang은 대기 중인 요청의 프롬프트가 실행 중 요청들의 예약분과 함께 풀에 들어가면 그 요청을 입장시킨다. radix cache를 켠 기본 경로에서 실행 중 요청 하나의 예약분은 `min(남은 토큰, 4096) × new_token_ratio`다([`schedule_policy.py:654`](../third_party/sglang_v0_5_18/schedule_policy.py#L654)). 이 비율은 0.7에서 하한 0.098까지 줄어들므로, 앞으로 1만 토큰을 더 만들 요청도 약 400토큰만 예약된다. 풀이 바닥나면 SGLang은 출력 토큰이 가장 적은 실행 중 요청을 선점한다. 그 요청의 KV는 해제되고 요청은 대기열 맨 뒤로 가며, 다시 입장할 때까지 스트림이 멈춘다. SGLang에는 정확한 시뮬레이션인 `add_one_req_ignore_eos`([`:1065`](../third_party/sglang_v0_5_18/schedule_policy.py#L1065))도 있다. 이 함수는 `ignore_eos` 요청의 남은 길이 전부를 끝나는 순서대로 따져 예약하지만, radix cache를 끈 경우에만 쓰인다([`:1213`](../third_party/sglang_v0_5_18/schedule_policy.py#L1213)).
 
-**증거**: 패치하지 않은 SGLang의 부하 스윕(2026-09-07, 부하마다 n=1; [`data/derived/sweep_0907.csv`](../data/derived/sweep_0907.csv), [`fig02_sweep_0907.png`](figures/fig02_sweep_0907.png)).
+**증거**: 패치하지 않은 SGLang의 부하 스윕(2026-09-07, 부하마다 n=1; [`data/derived/sweep_0907.csv`](../data/derived/sweep_0907.csv), [`fig02_sweep_0907.png`](figures/fig02_sweep_0907.png)). 이 스윕은 다른 날의 1회 측정이라 초당 2요청 열이 위의 3회 중앙값과 조금 다르다(여기서는 선점 <!--n:sweep0907.retractions.q2-->20<!--/n-->회와 goodput <!--n:sweep0907.goodput.q2-->0.407<!--/n-->, 위에서는 <!--n:q2.default.retractions-->19<!--/n-->회와 <!--n:q2.default.goodput-->0.403<!--/n-->).
 
 | 부하 (req/s) | 0.5 | 0.6 | 0.8 | 1 | 2 | 4 | 8 |
 |---|---|---|---|---|---|---|---|
@@ -185,6 +204,8 @@ SLO는 요청별 평균 TPOT(출력 토큰당 시간) ≤ <!--n:trace.tpot_slo_m
 | 초당 0.2요청 순정 vs 같은 부하의 패치 빌드(플래그 OFF) | <!--n:correct.det_q02up_vs_q02off-->120/120<!--/n--> | 플래그 OFF = upstream |
 | 초당 2요청 순정 r1 vs r2 | <!--n:correct.det_q2up_r1_vs_r2-->115/120<!--/n--> | 선점은 같은 순정 실행끼리도 출력을 흔든다. 다른 출력은 모두(<!--n:correct.det_q2up_r1_vs_r2_mismatches_in_victims-->5/5<!--/n-->) 선점 피해 요청이다 |
 | 초당 2요청 순정 vs 패치 | <!--n:correct.det_q2up_vs_q2mine-->98/120<!--/n--> (<!--n:correct.det_q2up_vs_q2mine_pct-->81.7<!--/n-->%) | 다른 출력은 모두(<!--n:correct.mismatches_in_victims-->22/22<!--/n-->) 순정 실행에서 선점된 요청 <!--n:correct.det_q2up_victims-->30<!--/n-->개 안에 있다 |
+
+이 비교들은 결정론 모드로 따로 돌린 실행을 쓰며, 그 수치는 위의 일반 모드 실행과 다르다. 패치하지 않은 SGLang의 결정론 모드 초당 2요청 실행에서는 <!--n:correct.det_q2up_victims-->30<!--/n-->개 요청이 멈췄고, default 세 번 실행에서는 <!--n:q2.default.stall5_range-->19–20<!--/n-->개였다.
 
 일반(비결정론) 모드에서는 같은 플래그 OFF 빌드를 같은 부하로 두 번 돌려도 출력이 <!--n:correct.nondet_q2default_r1_vs_r2-->20/120<!--/n-->만 같으므로, 정확성 기준으로 쓸 수 없다. verify 출력은 [`data/verify/`](../data/verify/)에, 요청별 출력 해시는 `data/derived/per_request.csv.gz`(`output_sha16`)에 있다.
 

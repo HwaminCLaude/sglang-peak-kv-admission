@@ -1,6 +1,6 @@
-English · [한국어](REPORT.ko.md)
+[← Front page](../README.en.md) · [Technical summary](TECHNICAL_SUMMARY.md) · English · [한국어](REPORT.ko.md)
 
-# W3 long-reasoning workload: KV retraction analysis and a peak-KV admission gate (SGLang 0.5.18)
+# Full report: KV retraction in a long-reasoning workload and a peak-KV admission gate (SGLang 0.5.18)
 
 > **Corrected edition.** This document corrects and extends the W3 final report submitted on 2026-09-17. The submitted version (an 11-page PDF) is not published. Every number or interpretation that changed, with its evidence, is listed in [ERRATA.md](ERRATA.md). This edition also restores material the submission left out: the reduced-pool causal control, the comparison with existing flags (`--disable-radix-cache`, `--max-running-requests`), per-repetition ranges, the interpretation of the correctness results, and Appendices A–D. The Korean version is [REPORT.ko.md](REPORT.ko.md).
 
@@ -16,6 +16,8 @@ English · [한국어](REPORT.ko.md)
 
 **How to read this report.**
 
+- **W3.** The course's label for this long-reasoning workload. It survives in file and directory names such as `w3/` and `w3_runs.csv`.
+- **Front-page wording.** The front page says "option" for a server flag and "request set" for the trace.
 - **Load.** `q2` is the trace (`reasoning_q2`) that sends the same 120 requests at 2 QPS; `qps 0.35` is the base trace. Only the QPS differs: prompts and output lengths are identical.
 - **Bar names.**
   - `upstream`: unpatched SGLang 0.5.18 (09-13).

@@ -2,6 +2,8 @@
 
 The course report was submitted on 2026-09-17 as an 11-page PDF made in HWP, written in Korean. It is not published in this repository. The table below lists every confirmed error and omission in it that a post-submission self-audit found. The corrected numbers were recomputed from the raw data ([data/RAW.md](../data/RAW.md)): `python3 -m analysis.headline` writes them to [`artifacts/numbers.json`](../artifacts/numbers.json), and `python3 tools/check_numbers.py` checks every number in this file against it. The corrected report is [docs/REPORT.md](REPORT.md) (English) and [docs/REPORT.ko.md](REPORT.ko.md) (Korean); the [technical summary](TECHNICAL_SUMMARY.md) summarizes it.
 
+**What changed, in short.** The table has 34 rows: 7 of high impact, 13 medium and 14 low. The 2 req/s measurements that the submitted report led with are unchanged: goodput <!--n:q2.default.goodput-->0.403<!--/n--> → <!--n:q2.mine.goodput-->0.440<!--/n--> req/s, retractions <!--n:q2.default.retractions-->19<!--/n--> → <!--n:q2.mine.retractions-->0<!--/n--> and TTFT p99 <!--n:q2.default.ttft_p99_s-->64.2<!--/n--> → <!--n:q2.mine.ttft_p99_s-->92.3<!--/n--> s. The seven high-impact rows change how those results must be read. Row 1 fixes a table that printed TPOT p50 values under the p99 heading. Rows 2 and 3 withdraw the reading of the <!--n:q2.gain.out_tok_s_pct-->+4.5<!--/n-->% as faster processing and show that about half of the goodput gain is one request. Row 4 states the condition that output lengths are known. Rows 5 and 6 replace the evidence for the bottleneck and report the controls that were run. Row 7 adds the comparison with SGLang's existing flags.
+
 How to read the table:
 
 - **Where** gives the PDF page and section.

@@ -1,12 +1,31 @@
-English · [한국어](TECHNICAL_SUMMARY.ko.md)
+[← Front page](../README.en.md) · English · [한국어](TECHNICAL_SUMMARY.ko.md)
 
-# Peak-KV admission for SGLang: diagnosing and removing retraction stalls in long-output serving
+# Technical summary: KV-retraction stalls in SGLang 0.5.18 and a peak-KV admission gate
 
-At 2 requests per second, SGLang 0.5.18 froze <!--n:q2.default.stall5-->19<!--/n--> of <!--n:trace.n_requests-->120<!--/n--> long answers mid-stream, each for <!--n:q2.default.stall_range_s-->30.8–64.8<!--/n--> s. This study traces those pauses to KV-cache retractions on the default (radix-cache) admission path. It removes them with a flag-gated scheduler gate that reuses SGLang's own exact-length admission simulation, then measures what the change costs and how much of the gain SGLang's existing flags already deliver. Setup: Qwen3-4B on one RTX 4090, a synthetic long-reasoning trace, <!--n:budget.runs-->53<!--/n--> measured runs. Every result in this document is computed from the data in this repository, and a script checks each quoted number against it.
+A 10-minute read. The [front page](../README.en.md) states the claim in two minutes. This summary backs it with the tables, the method, the costs and the hard questions. The [full report](REPORT.md) has the complete analysis.
+
+At 2 requests per second, SGLang 0.5.18 froze <!--n:q2.default.stall5-->19<!--/n--> of <!--n:trace.n_requests-->120<!--/n--> long answers mid-stream, each for <!--n:q2.default.stall_range_s-->30.8–64.8<!--/n--> s (the range over the three default runs). This study traces those pauses to KV-cache retractions on the default (radix-cache) admission path. It removes them with a flag-gated scheduler gate that reuses SGLang's own exact-length admission simulation, then measures what the change costs and how much of the gain SGLang's existing flags already deliver. Setup: Qwen3-4B on one RTX 4090, a synthetic long-reasoning trace, <!--n:budget.runs-->53<!--/n--> measured runs. Every result in this document is computed from the data in this repository, and a script checks each quoted number against it.
 
 SGLang 0.5.18 + patch (+<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n-->) · Qwen3-4B bf16 · RTX 4090 24GB · CPU-tested · Apache-2.0 / CC BY 4.0
 
 > This is a corrected and extended version of a submitted course report; see [ERRATA.md](ERRATA.md). The work began as an individual assignment in a 5-week LLM inference-engine study; see [Credits and provenance](#credits-and-provenance).
+
+**Terms used below**
+
+| Term | Meaning |
+|---|---|
+| retraction | The server takes back a running request's KV memory and sends the request to the back of the queue. Its stream stops until it is admitted again. |
+| admission | The scheduler's decision to start a waiting request. |
+| radix cache | SGLang's prefix cache. Requests share the KV of a common prompt prefix. On by default. |
+| stall | A gap of more than 5 s between two tokens of one request's stream. |
+| TTFT, TPOT | Time to first token; mean time per output token. |
+| worst token gap (maxITL) | A request's longest pause between two streamed chunks. |
+| goodput | Requests that met the SLO (mean TPOT ≤ <!--n:trace.tpot_slo_ms-->60<!--/n--> ms) divided by wall time. |
+| `qX`, α, N, σ | X requests/s; the share of each request's remaining output that the gate reserves; `--max-running-requests`; the spread of the output lengths. |
+| default, ablated, patch | The patched build with the flag off; default with chunked prefill off; the flag on. |
+| ★, n=1 | Median of 3 runs; a single run. |
+| W3 | The course's label for this long-reasoning workload. It survives in names such as `w3/`. |
+| option, request set | The front page's words for a server flag and for the trace. |
 
 ## TL;DR
 
@@ -32,7 +51,7 @@ SLO: mean time per output token (TPOT) ≤ <!--n:trace.tpot_slo_ms-->60<!--/n-->
 
 ![Request timelines at 2 req/s: default vs. patch](figures/hero_timeline.png)
 
-*One run of each configuration at 2 req/s: the run with the median goodput of the three (r2), n=1 per panel. Each row is one request in arrival order, showing its wait before the first token, its generation, and any pause longer than 5 s during generation. Default: <!--n:hero.default.stalled-->19<!--/n--> requests stall for <!--n:hero.default.stall_range_s-->32.5–64.8<!--/n--> s after they have started answering. Patch: <!--n:hero.mine.stalled-->0<!--/n--> stalls, but <!--n:hero.mine.wait10-->60<!--/n--> requests instead of <!--n:hero.default.wait10-->43<!--/n--> wait more than 10 s for their first token. Data: `data/derived/per_request.csv.gz`; script: `w3/figures.py`.*
+*One run of each configuration at 2 req/s: the run with the median goodput of the three (r2), n=1 per panel. Each row is one request in arrival order, showing its wait before the first token, its generation, and any pause longer than 5 s during generation. Default: <!--n:hero.default.stalled-->19<!--/n--> requests stall for <!--n:hero.default.stall_range_s-->32.5–64.8<!--/n--> s after they have started answering (the range of this one run; the three default runs together span <!--n:q2.default.stall_range_s-->30.8–64.8<!--/n--> s). Patch: <!--n:hero.mine.stalled-->0<!--/n--> stalls, but <!--n:hero.mine.wait10-->60<!--/n--> requests instead of <!--n:hero.default.wait10-->43<!--/n--> wait more than 10 s for their first token. Data: `data/derived/per_request.csv.gz`; script: `w3/figures.py`.*
 
 ### How to read these numbers
 
@@ -63,7 +82,7 @@ Each request's KV grows with every generated token, and the longest answers hold
 
 **Mechanism.** SGLang admits a waiting request when its prompt fits next to a reserve for the running requests. With the radix cache on (the default), the reserve per running request is `min(remaining tokens, 4096) × new_token_ratio` ([`schedule_policy.py:654`](../third_party/sglang_v0_5_18/schedule_policy.py#L654)). The ratio decays from 0.7 to a floor of 0.098, so a request that may still generate 10,000 tokens reserves about 400. When the pool runs out, SGLang retracts the running request with the fewest output tokens. Its KV is freed and it goes to the back of the waiting queue, and its stream stops until it is admitted again. SGLang also has an exact simulation, `add_one_req_ignore_eos` ([`:1065`](../third_party/sglang_v0_5_18/schedule_policy.py#L1065)). It reserves the full remaining length of `ignore_eos` requests, taking them in finish order, but it runs only when the radix cache is disabled ([`:1213`](../third_party/sglang_v0_5_18/schedule_policy.py#L1213)).
 
-**Evidence**, from a load sweep on unpatched SGLang (2026-09-07, n=1 per load; [`data/derived/sweep_0907.csv`](../data/derived/sweep_0907.csv), [`fig02_sweep_0907.png`](figures/fig02_sweep_0907.png)):
+**Evidence**, from a load sweep on unpatched SGLang (2026-09-07, n=1 per load; [`data/derived/sweep_0907.csv`](../data/derived/sweep_0907.csv), [`fig02_sweep_0907.png`](figures/fig02_sweep_0907.png)). Its 2 req/s column is a single run on another day, so it differs slightly from the three-run medians above (<!--n:sweep0907.retractions.q2-->20<!--/n--> retractions and goodput <!--n:sweep0907.goodput.q2-->0.407<!--/n--> here, <!--n:q2.default.retractions-->19<!--/n--> and <!--n:q2.default.goodput-->0.403<!--/n--> there):
 
 | Load (req/s) | 0.5 | 0.6 | 0.8 | 1 | 2 | 4 | 8 |
 |---|---|---|---|---|---|---|---|
@@ -185,6 +204,8 @@ Output comparisons in deterministic mode (`--enable-deterministic-inference --at
 | unpatched vs patched build with the flag off, both at 0.2 req/s | <!--n:correct.det_q02up_vs_q02off-->120/120<!--/n--> | flag off = upstream |
 | unpatched vs unpatched, 2 req/s, runs r1 and r2 | <!--n:correct.det_q2up_r1_vs_r2-->115/120<!--/n--> | retraction perturbs outputs even between identical runs; the differing requests are all retraction victims (<!--n:correct.det_q2up_r1_vs_r2_mismatches_in_victims-->5/5<!--/n-->) |
 | unpatched vs patch, both at 2 req/s | <!--n:correct.det_q2up_vs_q2mine-->98/120<!--/n--> (<!--n:correct.det_q2up_vs_q2mine_pct-->81.7<!--/n-->%) | the differing requests (<!--n:correct.mismatches_in_victims-->22/22<!--/n-->) are all among the <!--n:correct.det_q2up_victims-->30<!--/n--> requests that the unpatched run retracted |
+
+These comparisons use their own deterministic-mode runs, whose counts differ from the ordinary-mode runs above: the unpatched deterministic run at 2 req/s stalled <!--n:correct.det_q2up_victims-->30<!--/n--> requests, against <!--n:q2.default.stall5_range-->19–20<!--/n--> in the three default runs.
 
 In ordinary (non-deterministic) mode, two flag-off runs at the same load agree on only <!--n:correct.nondet_q2default_r1_vs_r2-->20/120<!--/n--> outputs, so that mode cannot serve as a correctness gate. The verify outputs are in [`data/verify/`](../data/verify/), and per-request output hashes are in `data/derived/per_request.csv.gz` (`output_sha16`).
 

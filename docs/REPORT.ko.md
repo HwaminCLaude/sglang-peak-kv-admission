@@ -1,6 +1,6 @@
-[English](REPORT.md) · 한국어
+[← 대문](../README.md) · [기술 요약](TECHNICAL_SUMMARY.ko.md) · [English](REPORT.md) · 한국어
 
-# W3 장문 추론 워크로드의 KV 선점 분석과 peak-KV admission 게이트 (SGLang 0.5.18)
+# 전체 보고서: 장문 추론 워크로드의 KV 선점 분석과 peak-KV admission 게이트 (SGLang 0.5.18)
 
 > **정정판 안내.** 이 문서는 2026-09-17에 제출한 W3 최종 보고서를 정정하고 보강한 판이다. 제출본(11쪽 PDF)은 공개하지 않으며, 제출본과 달라진 수치·해석과 그 근거는 [ERRATA.md](ERRATA.md)에 정리했다. 제출본에서 빠졌던 풀 축소 인과 대조, 기존 플래그(`--disable-radix-cache`, `--max-running-requests`) 비교, 반복별 범위, 정확성 결과의 해석, 부록 A–D도 되살렸다. 영어판은 [REPORT.md](REPORT.md)다.
 
@@ -16,6 +16,8 @@
 
 **읽는 법.**
 
+- **W3.** 과정에서 이 장문 추론 워크로드를 부르던 이름이다. `w3/`, `w3_runs.csv` 같은 파일과 폴더 이름에 남아 있다.
+- **대문과의 용어 대응.** 대문의 '받아들이다'는 이 보고서의 '입장(admission)'과 같은 말이다. 마찬가지로 '생성 중 멈춤'은 '정지', '옵션'은 '플래그', '기본값'은 `default`, '패치하지 않은 SGLang'은 '순정'과 upstream, '요청 세트'는 trace, '스터디'는 '과정'에 해당한다.
 - **부하.** `q2`는 같은 요청 120개를 2 QPS로 보내는 trace(`reasoning_q2`)이고, `qps 0.35`는 기본 trace다. QPS만 다르고 프롬프트와 출력 길이는 모두 같다.
 - **bar 이름.**
   - `upstream`: 순정 SGLang 0.5.18(09-13).
