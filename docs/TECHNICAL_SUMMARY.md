@@ -6,7 +6,7 @@ At 2 requests per second, SGLang 0.5.18 froze <!--n:q2.default.stall5-->19<!--/n
 
 SGLang 0.5.18 + patch (+<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n-->) · Qwen3-4B bf16 · RTX 4090 24GB · CPU-tested · Apache-2.0 / CC BY 4.0
 
-> This is a corrected and extended version of a submitted course report; see [ERRATA.md](../ERRATA.md). The work began as an individual assignment in a 5-week LLM inference-engine study; see [Credits and provenance](#credits-and-provenance).
+> This is a corrected and extended version of a submitted course report; see [ERRATA.md](ERRATA.md). The work began as an individual assignment in a 5-week LLM inference-engine study; see [Credits and provenance](#credits-and-provenance).
 
 ## TL;DR
 
@@ -40,7 +40,7 @@ SLO: mean time per output token (TPOT) ≤ <!--n:trace.tpot_slo_ms-->60<!--/n-->
 2. **Existing flags reproduce most of the gain.** `--disable-radix-cache` switches SGLang to the exact-length path the gate is ported from and reaches <!--n:q2.noradix.goodput-->0.435<!--/n--> req/s (<!--n:q2.share_of_gain.noradix_pct-->88.0<!--/n-->% of the gain, n=1). `--max-running-requests 40` reaches <!--n:q2.tuned_n40.goodput-->0.432<!--/n--> (<!--n:q2.share_of_gain.tuned_n40_pct-->78.1<!--/n-->%, n=1). All three settings meet the SLO for 120/120 requests, so their remaining goodput differences are wall time and single runs. The gate adds two things: exact-length admission with the radix cache on, and no retraction under any load tested. N = 40 retracted again at 1 req/s, 4 req/s and σ = 1.0 (<!--n:reretract.tuned_n40.q1-->1<!--/n-->, <!--n:reretract.tuned_n40.q4-->4<!--/n--> and <!--n:reretract.tuned_n40.s1.0-->3<!--/n--> times, n=1 each). This trace shares only a <!--n:trace.shared_prefix_tokens-->36<!--/n-->-token prefix, so keeping the radix cache on is worth little here. Whether larger shared prefixes favor the gate was not measured.
 3. **Oracle lengths.** Every trace sets `ignore_eos=True`, so `max_new_tokens` equals each request's real output length, and the gate reserves exactly what each request will use. Read the result as an upper bound for any scheme that has to guess lengths. It is not usable as-is for traffic with unknown output lengths or with a TTFT SLO (see [Costs](#costs-and-when-not-to-use-it)).
 
-[Report (English)](REPORT.md) · [보고서 (한국어)](REPORT.ko.md) · [Patch](../patch/README.md) · [Patch on SGLang (fork)](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d) · [CPU tests](../tests/README.md) · [Hard questions](#faq) · [Errata](../ERRATA.md) · [Experiment log](EXPERIMENTS.md) · [Data](../data/README.md)
+[Report (English)](REPORT.md) · [보고서 (한국어)](REPORT.ko.md) · [Patch](../patch/README.md) · [Patch on SGLang (fork)](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d) · [CPU tests](../tests/README.md) · [Hard questions](#faq) · [Errata](ERRATA.md) · [Experiment log](EXPERIMENTS.md) · [Data](../data/README.md)
 
 ## Problem and setup
 
@@ -292,9 +292,9 @@ w3/            experiment scripts (run_one.sh, run_queue.sh, queues/), metrics, 
 analysis/      retraction-to-stall matching, headline numbers
 artifacts/     numbers.json and equivalence.json: every number the docs quote
 data/          derived tables, verify outputs, run ledger, sample logs, trace hashes (raw data: Release)
-docs/          this summary (TECHNICAL_SUMMARY*.md), REPORT.md, REPORT.ko.md, EXPERIMENTS.md, figures/, preregistration/
+docs/          this summary (TECHNICAL_SUMMARY*.md), REPORT.md, REPORT.ko.md, EXPERIMENTS.md, figures/, preregistration/,
+               ERRATA.md (corrections to the submitted report)
 tools/         number checker, pre-publication checks, raw-data and course-harness fetchers
-ERRATA.md      corrections to the submitted report
 ```
 
 Data files are described in [`data/README.md`](../data/README.md).

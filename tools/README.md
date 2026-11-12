@@ -25,7 +25,7 @@ Every headline number in the Markdown docs is written as
 
 GitHub hides the comments, so readers see only DISPLAY. The checker loads all
 `artifacts/*.json` files (a key defined twice is an error), scans `README*.md`,
-`ERRATA.md`, `docs/**/*.md`, `data/*.md`, `patch/*.md` and `tests/*.md`, and
+`docs/**/*.md`, `data/*.md`, `patch/*.md` and `tests/*.md`, and
 fails when a KEY is unknown, when DISPLAY differs from the key's `display`
 string (character for character, so U+2212 "−" is not "-"), or when a marker
 is malformed. Markers inside code spans and fenced code blocks are ignored.

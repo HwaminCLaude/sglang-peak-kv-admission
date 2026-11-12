@@ -13,7 +13,7 @@ This page records how the measurements were made: the order of the runs, the GPU
 | 2026-09-13 13:59:57 | The plan was written: [docs/preregistration/plan_2026-09-13.md](preregistration/plan_2026-09-13.md). | |
 | 2026-09-13 15:03–20:26 | <!--n:budget.runs-->53<!--/n--> runs of [`w3/run_one.sh`](../w3/run_one.sh) from six queue files (next section). The patch file is dated 15:06:56. It was applied to the installed SGLang at 16:04, after the unpatched queue. | `w3/runs.tsv` (0913, `det/`) |
 | 2026-09-13 20:26–20:44 | Cross-workload replay with the course's script, once without and once with the gate. | `cross/` (cross) |
-| 2026-09-17 | Report submitted (11-page PDF; see [ERRATA.md](../ERRATA.md)). | |
+| 2026-09-17 | Report submitted (11-page PDF; see [ERRATA.md](ERRATA.md)). | |
 | 2026-10 | Post-submission audit and this repository. | |
 
 The 2026-09-03 to 09-13-morning entries are reconstructed from file times. From 15:03 on 09-13, every run is in the ledgers.

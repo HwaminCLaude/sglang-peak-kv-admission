@@ -16,7 +16,7 @@ Top-level keys that start with "_" or "$" are treated as metadata and skipped.
 A key defined twice (in one file or across files) is an error.
 
 Scanned docs (files that do not exist yet are skipped):
-    README*.md, ERRATA.md, docs/**/*.md, data/*.md, patch/*.md, tests/*.md
+    README*.md, docs/**/*.md, data/*.md, patch/*.md, tests/*.md
 Markers inside fenced code blocks and inline code spans are ignored, because
 GitHub shows them as literal text there.
 
@@ -40,7 +40,6 @@ from pathlib import Path
 
 DOC_GLOBS = (
     "README*.md",
-    "ERRATA.md",
     "docs/**/*.md",
     "data/*.md",
     "patch/*.md",

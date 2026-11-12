@@ -5,14 +5,13 @@ Copyright 2026 HwaminJung00
 
 This license applies to the following paths:
 
-    docs/            technical summaries, reports, experiment notes and the
-                     preregistered plan
+    docs/            technical summaries, reports, errata, experiment notes and
+                     the preregistered plan
     docs/figures/    figures
     data/            data documentation (README.md, RAW.md), derived data
                      (summary tables and generated reports), output-comparison
                      results, run ledger, server-log samples, trace checksums
     README*.md       README.md and README.ko.md
-    ERRATA.md        corrections to the submitted report
     release data-v1  the raw-data assets of the GitHub release "data-v1"
                      (generated texts inside were produced with Qwen/Qwen3-4B,
                      Apache-2.0; see NOTICE)

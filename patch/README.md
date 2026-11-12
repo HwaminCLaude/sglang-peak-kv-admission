@@ -115,7 +115,7 @@ The changes were made by the author of this repository (GitHub `HwaminJung00`) o
 
 ## Notes from the errata
 
-These points come from the post-study review (see [`ERRATA.md`](../ERRATA.md)). The diff above is kept as measured. The corrections live here and in the tests.
+These points come from the post-study review (see [`docs/ERRATA.md`](../docs/ERRATA.md)). The diff above is kept as measured. The corrections live here and in the tests.
 
 ### C3: the `_peak_kv_fits` docstring is inaccurate
 

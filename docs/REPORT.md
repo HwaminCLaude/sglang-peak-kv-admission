@@ -2,7 +2,7 @@ English · [한국어](REPORT.ko.md)
 
 # W3 long-reasoning workload: KV retraction analysis and a peak-KV admission gate (SGLang 0.5.18)
 
-> **Corrected edition.** This document corrects and extends the W3 final report submitted on 2026-09-17. The submitted version (an 11-page PDF) is not published. Every number or interpretation that changed, with its evidence, is listed in [ERRATA.md](../ERRATA.md). This edition also restores material the submission left out: the reduced-pool causal control, the comparison with existing flags (`--disable-radix-cache`, `--max-running-requests`), per-repetition ranges, the interpretation of the correctness results, and Appendices A–D. The Korean version is [REPORT.ko.md](REPORT.ko.md).
+> **Corrected edition.** This document corrects and extends the W3 final report submitted on 2026-09-17. The submitted version (an 11-page PDF) is not published. Every number or interpretation that changed, with its evidence, is listed in [ERRATA.md](ERRATA.md). This edition also restores material the submission left out: the reduced-pool causal control, the comparison with existing flags (`--disable-radix-cache`, `--max-running-requests`), per-repetition ranges, the interpretation of the correctness results, and Appendices A–D. The Korean version is [REPORT.ko.md](REPORT.ko.md).
 
 | Item | Value |
 |---|---|

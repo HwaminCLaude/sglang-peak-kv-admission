@@ -6,7 +6,7 @@
 
 SGLang 0.5.18 + patch (+<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n-->) · Qwen3-4B bf16 · RTX 4090 24GB · CPU-tested · Apache-2.0 / CC BY 4.0
 
-> 제출했던 과정 보고서를 정정하고 보강한 판이다. 정정 내역은 [ERRATA.md](../ERRATA.md)(영문)에 있다. 이 작업은 5주짜리 LLM 추론 엔진 스터디의 개인 과제로 시작했다. [크레딧과 출처](#크레딧과-출처)를 참고한다.
+> 제출했던 과정 보고서를 정정하고 보강한 판이다. 정정 내역은 [ERRATA.md](ERRATA.md)(영문)에 있다. 이 작업은 5주짜리 LLM 추론 엔진 스터디의 개인 과제로 시작했다. [크레딧과 출처](#크레딧과-출처)를 참고한다.
 
 ## 요약
 
@@ -40,7 +40,7 @@ SLO는 요청별 평균 TPOT(출력 토큰당 시간) ≤ <!--n:trace.tpot_slo_m
 2. **기존 플래그가 이득의 대부분을 재현한다.** `--disable-radix-cache`는 게이트가 옮겨 온 정확 길이 경로를 SGLang이 직접 쓰게 하며, <!--n:q2.noradix.goodput-->0.435<!--/n--> req/s(이득의 <!--n:q2.share_of_gain.noradix_pct-->88.0<!--/n-->%, n=1)에 이른다. `--max-running-requests 40`은 <!--n:q2.tuned_n40.goodput-->0.432<!--/n-->(<!--n:q2.share_of_gain.tuned_n40_pct-->78.1<!--/n-->%, n=1)이다. 세 설정 모두 요청 120개가 전부 SLO를 지키므로 남은 goodput 차이는 wall time 차이이고, 1회 실행끼리의 비교다. 게이트가 더하는 것은 두 가지다. radix cache를 켠 채 정확 길이 입장을 쓴다는 점, 그리고 시험한 모든 부하에서 선점이 0이라는 점이다. N = 40은 초당 1요청, 초당 4요청, σ = 1.0에서 다시 선점했다(각각 <!--n:reretract.tuned_n40.q1-->1<!--/n-->, <!--n:reretract.tuned_n40.q4-->4<!--/n-->, <!--n:reretract.tuned_n40.s1.0-->3<!--/n-->회, 모두 n=1). 이 trace의 공유 prefix는 <!--n:trace.shared_prefix_tokens-->36<!--/n-->토큰뿐이라 radix cache를 켜 두는 이득이 작다. 공유 prefix가 큰 워크로드에서 게이트가 유리한지는 측정하지 않았다.
 3. **오라클 길이.** 모든 trace가 `ignore_eos=True`라서 `max_new_tokens`가 곧 실제 출력 길이이고, 게이트는 각 요청이 쓸 만큼을 정확히 예약한다. 이 결과는 길이를 짐작해야 하는 방식이 낼 수 있는 상한으로 읽어야 한다. 출력 길이를 모르는 트래픽이나 TTFT SLO가 있는 서비스에는 그대로 쓸 수 없다([대가](#대가와-쓰지-말아야-할-때) 참고).
 
-[보고서 (한국어)](REPORT.ko.md) · [Report (English)](REPORT.md) · [패치](../patch/README.md) · [SGLang fork의 패치 커밋](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d) · [CPU 테스트](../tests/README.md) · [어려운 질문](#faq) · [정오표](../ERRATA.md) · [실험 기록](EXPERIMENTS.md) · [데이터](../data/README.md)
+[보고서 (한국어)](REPORT.ko.md) · [Report (English)](REPORT.md) · [패치](../patch/README.md) · [SGLang fork의 패치 커밋](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d) · [CPU 테스트](../tests/README.md) · [어려운 질문](#faq) · [정오표](ERRATA.md) · [실험 기록](EXPERIMENTS.md) · [데이터](../data/README.md)
 
 ## 문제와 실험 환경
 
@@ -292,9 +292,9 @@ w3/            실험 스크립트(run_one.sh, run_queue.sh, queues/), 지표, �
 analysis/      선점-정지 대응, 헤드라인 수치
 artifacts/     numbers.json, equivalence.json: 문서가 인용하는 모든 수치
 data/          파생 표, verify 출력, 실행 기록, 서버 로그 표본, trace 해시(원시 데이터는 Release)
-docs/          이 요약(TECHNICAL_SUMMARY*.md), REPORT.md, REPORT.ko.md, EXPERIMENTS.md, figures/, preregistration/
+docs/          이 요약(TECHNICAL_SUMMARY*.md), REPORT.md, REPORT.ko.md, EXPERIMENTS.md, figures/, preregistration/,
+               ERRATA.md(제출 보고서의 정정 목록)
 tools/         수치 대조, 공개 전 점검, 원시 데이터와 과정 하니스 받기
-ERRATA.md      제출 보고서의 정정 목록
 ```
 
 데이터 파일 설명은 [`data/README.md`](../data/README.md)(영문)에 있다.
