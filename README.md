@@ -60,9 +60,12 @@ SGLang에는 길이가 정해진 요청에 대해 남은 출력 길이를 전부
 GPU 없이 1분 안에 패치의 판정 논리와 문서의 수치를 확인할 수 있다(GPU 측정을 다시 하지는 않는다).
 
 ```bash
-python3 tests/run_cpu_tests.py               # 패치 판정 논리의 단위 테스트
-python3 tests/test_upstream_equivalence.py   # 손대지 않은 SGLang 함수와 판정 비교
-python3 tools/check_numbers.py               # 문서에 마커로 표시한 수치를 데이터에서 계산한 값과 대조
+# 패치 판정 논리의 단위 테스트
+python3 tests/run_cpu_tests.py
+# 손대지 않은 SGLang 함수와 판정 비교
+python3 tests/test_upstream_equivalence.py
+# 문서에 마커로 표시한 수치를 데이터에서 계산한 값과 대조
+python3 tools/check_numbers.py
 ```
 
 - [패치](patch/README.md): +<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n-->줄. 기존 검사 위에 조건을 하나 더할 뿐이라 요청을 보류할 수는 있어도, 원래 보류되던 요청을 받아들이지는 않는다([fork 커밋](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d))

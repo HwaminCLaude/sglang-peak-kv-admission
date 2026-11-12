@@ -60,9 +60,12 @@ With the default settings, SGLang reserves only `min(remaining tokens, 4096) × 
 Without a GPU, one minute is enough to check the patch's decision logic and the numbers in the documents. It does not repeat the GPU measurements.
 
 ```bash
-python3 tests/run_cpu_tests.py               # unit tests of the patch's decision logic
-python3 tests/test_upstream_equivalence.py   # verdicts against the unmodified SGLang function
-python3 tools/check_numbers.py               # every marked number in the docs against the data
+# unit tests of the patch's decision logic
+python3 tests/run_cpu_tests.py
+# verdicts against the unmodified SGLang function
+python3 tests/test_upstream_equivalence.py
+# every marked number in the docs against the data
+python3 tools/check_numbers.py
 ```
 
 - [Patch](patch/README.md): +<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n--> lines. It only adds one more condition on top of SGLang's own checks, so it can hold a request back but never admits one that SGLang would have held back ([commit on a fork](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d))
