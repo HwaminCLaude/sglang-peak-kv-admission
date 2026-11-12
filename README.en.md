@@ -4,7 +4,7 @@
 
 **SGLang 0.5.18 · the cause of request retraction under KV-cache pressure, a <!--n:patch.lines_added-->102<!--/n-->-line patch, and what it costs**
 
-[![cpu-tests](https://github.com/HwaminJung00/sglang-peak-kv-admission/actions/workflows/cpu-tests.yml/badge.svg)](https://github.com/HwaminJung00/sglang-peak-kv-admission/actions/workflows/cpu-tests.yml)
+[![cpu-tests](https://github.com/HwaminCLaude/sglang-peak-kv-admission/actions/workflows/cpu-tests.yml/badge.svg)](https://github.com/HwaminCLaude/sglang-peak-kv-admission/actions/workflows/cpu-tests.yml)
 
 Qwen3-4B · one RTX 4090 · <!--n:trace.n_requests-->120<!--/n--> synthetic requests with answer lengths fixed in advance
 

@@ -4,7 +4,7 @@
 
 **SGLang 0.5.18 · KV 부족으로 생기는 요청 선점(retraction)의 원인 규명과 <!--n:patch.lines_added-->102<!--/n-->줄 패치, 그리고 그 대가**
 
-[![cpu-tests](https://github.com/HwaminJung00/sglang-peak-kv-admission/actions/workflows/cpu-tests.yml/badge.svg)](https://github.com/HwaminJung00/sglang-peak-kv-admission/actions/workflows/cpu-tests.yml)
+[![cpu-tests](https://github.com/HwaminCLaude/sglang-peak-kv-admission/actions/workflows/cpu-tests.yml/badge.svg)](https://github.com/HwaminCLaude/sglang-peak-kv-admission/actions/workflows/cpu-tests.yml)
 
 Qwen3-4B · RTX 4090 1장 · 답변 길이를 미리 정해 둔 합성 요청 <!--n:trace.n_requests-->120<!--/n-->개
 
