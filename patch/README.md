@@ -12,7 +12,7 @@ The patch ports SGLang's existing exact-length admission simulation to the radix
 
 The gate trusts `max_new_tokens` as each request's real output length. In the synthetic W3 trace every request has `ignore_eos=True`, so this value is exact. The gate is therefore an **oracle reservation that uses known output lengths**; it does not predict lengths.
 
-Upstream already runs this simulation when the radix cache is off. In the study, the existing flag `--disable-radix-cache` recovered <!--n:q2.share_of_gain.noradix_pct-->88.0<!--/n-->% of the gate's goodput gain at q2 on its own, and `--max-running-requests 40` recovered <!--n:q2.share_of_gain.tuned_n40_pct-->78.1<!--/n-->% (one run each). What the patch adds is the same check with the radix cache kept on, plus α. The gate delays admissions, so its cost is time to first token: TTFT p99 changed by <!--n:q2.gain.ttft_p99_pct-->+43.6<!--/n-->% against the flag-off default at q2 (median of 3 runs). The README reports the full trade-off.
+Upstream already runs this simulation when the radix cache is off. In the study, the existing flag `--disable-radix-cache` recovered <!--n:q2.share_of_gain.noradix_pct-->88.0<!--/n-->% of the gate's goodput gain at q2 on its own, and `--max-running-requests 40` recovered <!--n:q2.share_of_gain.tuned_n40_pct-->78.1<!--/n-->% (one run each). What the patch adds is the same check with the radix cache kept on, plus α. The gate delays admissions, so its cost is time to first token: TTFT p99 changed by <!--n:q2.gain.ttft_p99_pct-->+43.6<!--/n-->% against the flag-off default at q2 (median of 3 runs). The [technical summary](../docs/TECHNICAL_SUMMARY.md#costs-and-when-not-to-use-it) reports the full trade-off.
 
 ### Flags
 

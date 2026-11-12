@@ -5,7 +5,8 @@ Copyright 2026 HwaminJung00
 
 This license applies to the following paths:
 
-    docs/            reports, experiment notes and the preregistered plan
+    docs/            technical summaries, reports, experiment notes and the
+                     preregistered plan
     docs/figures/    figures
     data/            data documentation (README.md, RAW.md), derived data
                      (summary tables and generated reports), output-comparison

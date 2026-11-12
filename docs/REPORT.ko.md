@@ -12,7 +12,7 @@
 | 엔진 | SGLang v0.5.18 (`71de97b`) + [`patch/peak_kv_reservation.diff`](../patch/peak_kv_reservation.diff) (+<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n-->줄, 플래그 기본 OFF) |
 | 모델 · GPU | Qwen/Qwen3-4B (bf16) · RTX 4090 24 GB · KV 풀 <!--n:kv.pool_tokens-->87,552<!--/n-->토큰 |
 
-**출처와 도구.** 이 작업은 5주 LLM 추론 엔진 스터디(2026년 8–9월)의 개인 과제로 시작했다. 워크로드 정의, trace 생성기, 재생·지표 하니스, 그리고 peak KV 예약을 탐색해 보라는 힌트는 과정 저장소 [mlleo/inference-engine-study](https://github.com/mlleo/inference-engine-study)가 제공했고, 이 저장소에는 그 파일을 넣지 않았다. 강사용 풀이 자료는 참고하지 않았다(사전 계획에 기록). 병목 분석, 패치, 실험 자동화, 검증, 보고서는 본인 작업이다. 정정판의 재계산·검증·문서화에는 AI 코딩 도구를 보조로 썼다([README의 Tools used](../README.md#tools-used)).
+**출처와 도구.** 이 작업은 5주 LLM 추론 엔진 스터디(2026년 8–9월)의 개인 과제로 시작했다. 워크로드 정의, trace 생성기, 재생·지표 하니스, 그리고 peak KV 예약을 탐색해 보라는 힌트는 과정 저장소 [mlleo/inference-engine-study](https://github.com/mlleo/inference-engine-study)가 제공했고, 이 저장소에는 그 파일을 넣지 않았다. 강사용 풀이 자료는 참고하지 않았다(사전 계획에 기록). 병목 분석, 패치, 실험 자동화, 검증, 보고서는 본인 작업이다. 정정판의 재계산·검증·문서화에는 AI 코딩 도구를 보조로 썼다([기술 요약의 도구 사용](TECHNICAL_SUMMARY.ko.md#도구-사용)).
 
 **읽는 법.**
 

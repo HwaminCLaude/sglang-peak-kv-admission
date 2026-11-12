@@ -1,12 +1,12 @@
-English · [한국어](README.ko.md)
+English · [한국어](TECHNICAL_SUMMARY.ko.md)
 
 # Peak-KV admission for SGLang: diagnosing and removing retraction stalls in long-output serving
 
-At 2 requests per second, SGLang 0.5.18 froze <!--n:q2.default.stall5-->19<!--/n--> of <!--n:trace.n_requests-->120<!--/n--> long answers mid-stream, each for <!--n:q2.default.stall_range_s-->30.8–64.8<!--/n--> s. This study traces those pauses to KV-cache retractions on the default (radix-cache) admission path. It removes them with a flag-gated scheduler gate that reuses SGLang's own exact-length admission simulation, then measures what the change costs and how much of the gain SGLang's existing flags already deliver. Setup: Qwen3-4B on one RTX 4090, a synthetic long-reasoning trace, <!--n:budget.runs-->53<!--/n--> measured runs. Every result in this README is computed from the data in this repository, and a script checks each quoted number against it.
+At 2 requests per second, SGLang 0.5.18 froze <!--n:q2.default.stall5-->19<!--/n--> of <!--n:trace.n_requests-->120<!--/n--> long answers mid-stream, each for <!--n:q2.default.stall_range_s-->30.8–64.8<!--/n--> s. This study traces those pauses to KV-cache retractions on the default (radix-cache) admission path. It removes them with a flag-gated scheduler gate that reuses SGLang's own exact-length admission simulation, then measures what the change costs and how much of the gain SGLang's existing flags already deliver. Setup: Qwen3-4B on one RTX 4090, a synthetic long-reasoning trace, <!--n:budget.runs-->53<!--/n--> measured runs. Every result in this document is computed from the data in this repository, and a script checks each quoted number against it.
 
 SGLang 0.5.18 + patch (+<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n-->) · Qwen3-4B bf16 · RTX 4090 24GB · CPU-tested · Apache-2.0 / CC BY 4.0
 
-> This is a corrected and extended version of a submitted course report; see [ERRATA.md](ERRATA.md). The work began as an individual assignment in a 5-week LLM inference-engine study; see [Credits and provenance](#credits-and-provenance).
+> This is a corrected and extended version of a submitted course report; see [ERRATA.md](../ERRATA.md). The work began as an individual assignment in a 5-week LLM inference-engine study; see [Credits and provenance](#credits-and-provenance).
 
 ## TL;DR
 
@@ -28,19 +28,19 @@ Trace `reasoning_q2`: 120 requests, Poisson arrivals at 2 req/s, a fresh server 
 | existing `--disable-radix-cache` (n=1) | <!--n:q2.noradix.goodput-->0.435<!--/n--> | <!--n:q2.noradix.slo_ratio-->120/120<!--/n--> | <!--n:q2.noradix.retractions-->0<!--/n--> | <!--n:q2.noradix.maxitl_p99_s-->0.12<!--/n--> | <!--n:q2.noradix.ttft_p99_s-->89.9<!--/n--> | <!--n:q2.noradix.ttft_mean_s-->30.3<!--/n--> | <!--n:q2.noradix.wait10-->60<!--/n--> |
 | existing `--max-running-requests 40` (n=1) | <!--n:q2.tuned_n40.goodput-->0.432<!--/n--> | <!--n:q2.tuned_n40.slo_ratio-->120/120<!--/n--> | <!--n:q2.tuned_n40.retractions-->0<!--/n--> | <!--n:q2.tuned_n40.maxitl_p99_s-->0.09<!--/n--> | <!--n:q2.tuned_n40.ttft_p99_s-->93.5<!--/n--> | <!--n:q2.tuned_n40.ttft_mean_s-->35.2<!--/n--> | <!--n:q2.tuned_n40.wait10-->71<!--/n--> |
 
-SLO: mean time per output token (TPOT) ≤ <!--n:trace.tpot_slo_ms-->60<!--/n--> ms per request; the trace sets no TTFT SLO. Goodput = SLO-met requests / wall time. p99 worst token gap = the p99, over requests, of each request's longest pause between two streamed chunks (maxITL p99). SLO met, TTFT mean and Waited >10 s are medians; across the three runs they move by at most one request or 0.4 s ([`data/derived/w3_q2_grouped.csv`](data/derived/w3_q2_grouped.csv)). "default" is the patched build with the flag off. An unpatched run at the same load (n=1) gave <!--n:q2.upstream.goodput-->0.403<!--/n--> req/s and <!--n:q2.upstream.retractions-->19<!--/n--> retractions.
+SLO: mean time per output token (TPOT) ≤ <!--n:trace.tpot_slo_ms-->60<!--/n--> ms per request; the trace sets no TTFT SLO. Goodput = SLO-met requests / wall time. p99 worst token gap = the p99, over requests, of each request's longest pause between two streamed chunks (maxITL p99). SLO met, TTFT mean and Waited >10 s are medians; across the three runs they move by at most one request or 0.4 s ([`data/derived/w3_q2_grouped.csv`](../data/derived/w3_q2_grouped.csv)). "default" is the patched build with the flag off. An unpatched run at the same load (n=1) gave <!--n:q2.upstream.goodput-->0.403<!--/n--> req/s and <!--n:q2.upstream.retractions-->19<!--/n--> retractions.
 
-![Request timelines at 2 req/s: default vs. patch](docs/figures/hero_timeline.png)
+![Request timelines at 2 req/s: default vs. patch](figures/hero_timeline.png)
 
 *One run of each configuration at 2 req/s: the run with the median goodput of the three (r2), n=1 per panel. Each row is one request in arrival order, showing its wait before the first token, its generation, and any pause longer than 5 s during generation. Default: <!--n:hero.default.stalled-->19<!--/n--> requests stall for <!--n:hero.default.stall_range_s-->32.5–64.8<!--/n--> s after they have started answering. Patch: <!--n:hero.mine.stalled-->0<!--/n--> stalls, but <!--n:hero.mine.wait10-->60<!--/n--> requests instead of <!--n:hero.default.wait10-->43<!--/n--> wait more than 10 s for their first token. Data: `data/derived/per_request.csv.gz`; script: `w3/figures.py`.*
 
 ### How to read these numbers
 
-1. **Where the <!--n:q2.gain.goodput_pct-->+9.1<!--/n-->% comes from.** Goodput is SLO-met requests divided by wall time, and wall time ends when the last request finishes. SLO-met rises <!--n:q2.default.slo_met-->115<!--/n--> → <!--n:q2.mine.slo_met-->120<!--/n--> (×<!--n:q2.gain.slo_factor-->1.043<!--/n-->) and wall time falls <!--n:q2.default.wall_s-->285.2<!--/n--> → <!--n:q2.mine.wall_s-->272.8<!--/n--> s (×<!--n:q2.gain.wall_factor-->1.045<!--/n-->). The wall term is one request: <!--n:q2.longest.rid-->reason-00064<!--/n-->, the longest answer (<!--n:q2.longest.out_tokens-->10,541<!--/n--> tokens), finishes last in <!--n:q2.longest.last_to_finish_default-->3/3<!--/n--> default runs after a <!--n:q2.longest.default_stall_s-->61.7<!--/n--> s mid-answer stall. With the patch it waits <!--n:q2.longest.mine_ttft_s-->32.1<!--/n--> s for admission and then streams without a pause. Without that request the gain is <!--n:q2.excl_longest.gain_pct-->+4.4<!--/n-->% (<!--n:q2.excl_longest.default_goodput-->0.420<!--/n--> → <!--n:q2.excl_longest.mine_goodput-->0.439<!--/n--> req/s). Output tokens/s change by <!--n:q2.gain.out_tok_s_pct-->+4.5<!--/n-->% for the same reason: the total output is fixed at <!--n:trace.out_total-->337,433<!--/n--> tokens, so tokens/s is that total divided by wall time. Half of all output tokens arrive <!--n:q2.cum.t50_mine_minus_default_s-->5.6<!--/n--> s *later* with the patch (<!--n:q2.cum.default_t50_s-->96.3<!--/n--> → <!--n:q2.cum.mine_t50_s-->101.9<!--/n--> s). See [`fig05_goodput_decomposition.png`](docs/figures/fig05_goodput_decomposition.png).
+1. **Where the <!--n:q2.gain.goodput_pct-->+9.1<!--/n-->% comes from.** Goodput is SLO-met requests divided by wall time, and wall time ends when the last request finishes. SLO-met rises <!--n:q2.default.slo_met-->115<!--/n--> → <!--n:q2.mine.slo_met-->120<!--/n--> (×<!--n:q2.gain.slo_factor-->1.043<!--/n-->) and wall time falls <!--n:q2.default.wall_s-->285.2<!--/n--> → <!--n:q2.mine.wall_s-->272.8<!--/n--> s (×<!--n:q2.gain.wall_factor-->1.045<!--/n-->). The wall term is one request: <!--n:q2.longest.rid-->reason-00064<!--/n-->, the longest answer (<!--n:q2.longest.out_tokens-->10,541<!--/n--> tokens), finishes last in <!--n:q2.longest.last_to_finish_default-->3/3<!--/n--> default runs after a <!--n:q2.longest.default_stall_s-->61.7<!--/n--> s mid-answer stall. With the patch it waits <!--n:q2.longest.mine_ttft_s-->32.1<!--/n--> s for admission and then streams without a pause. Without that request the gain is <!--n:q2.excl_longest.gain_pct-->+4.4<!--/n-->% (<!--n:q2.excl_longest.default_goodput-->0.420<!--/n--> → <!--n:q2.excl_longest.mine_goodput-->0.439<!--/n--> req/s). Output tokens/s change by <!--n:q2.gain.out_tok_s_pct-->+4.5<!--/n-->% for the same reason: the total output is fixed at <!--n:trace.out_total-->337,433<!--/n--> tokens, so tokens/s is that total divided by wall time. Half of all output tokens arrive <!--n:q2.cum.t50_mine_minus_default_s-->5.6<!--/n--> s *later* with the patch (<!--n:q2.cum.default_t50_s-->96.3<!--/n--> → <!--n:q2.cum.mine_t50_s-->101.9<!--/n--> s). See [`fig05_goodput_decomposition.png`](figures/fig05_goodput_decomposition.png).
 2. **Existing flags reproduce most of the gain.** `--disable-radix-cache` switches SGLang to the exact-length path the gate is ported from and reaches <!--n:q2.noradix.goodput-->0.435<!--/n--> req/s (<!--n:q2.share_of_gain.noradix_pct-->88.0<!--/n-->% of the gain, n=1). `--max-running-requests 40` reaches <!--n:q2.tuned_n40.goodput-->0.432<!--/n--> (<!--n:q2.share_of_gain.tuned_n40_pct-->78.1<!--/n-->%, n=1). All three settings meet the SLO for 120/120 requests, so their remaining goodput differences are wall time and single runs. The gate adds two things: exact-length admission with the radix cache on, and no retraction under any load tested. N = 40 retracted again at 1 req/s, 4 req/s and σ = 1.0 (<!--n:reretract.tuned_n40.q1-->1<!--/n-->, <!--n:reretract.tuned_n40.q4-->4<!--/n--> and <!--n:reretract.tuned_n40.s1.0-->3<!--/n--> times, n=1 each). This trace shares only a <!--n:trace.shared_prefix_tokens-->36<!--/n-->-token prefix, so keeping the radix cache on is worth little here. Whether larger shared prefixes favor the gate was not measured.
 3. **Oracle lengths.** Every trace sets `ignore_eos=True`, so `max_new_tokens` equals each request's real output length, and the gate reserves exactly what each request will use. Read the result as an upper bound for any scheme that has to guess lengths. It is not usable as-is for traffic with unknown output lengths or with a TTFT SLO (see [Costs](#costs-and-when-not-to-use-it)).
 
-[Report (English)](docs/REPORT.md) · [보고서 (한국어)](docs/REPORT.ko.md) · [Patch](patch/README.md) · [Patch on SGLang (fork)](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d) · [CPU tests](tests/README.md) · [Hard questions](#faq) · [Errata](ERRATA.md) · [Experiment log](docs/EXPERIMENTS.md) · [Data](data/README.md)
+[Report (English)](REPORT.md) · [보고서 (한국어)](REPORT.ko.md) · [Patch](../patch/README.md) · [Patch on SGLang (fork)](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d) · [CPU tests](../tests/README.md) · [Hard questions](#faq) · [Errata](../ERRATA.md) · [Experiment log](EXPERIMENTS.md) · [Data](../data/README.md)
 
 ## Problem and setup
 
@@ -61,9 +61,9 @@ Each request's KV grows with every generated token, and the longest answers hold
 
 ## Diagnosis: why long answers stall
 
-**Mechanism.** SGLang admits a waiting request when its prompt fits next to a reserve for the running requests. With the radix cache on (the default), the reserve per running request is `min(remaining tokens, 4096) × new_token_ratio` ([`schedule_policy.py:654`](third_party/sglang_v0_5_18/schedule_policy.py#L654)). The ratio decays from 0.7 to a floor of 0.098, so a request that may still generate 10,000 tokens reserves about 400. When the pool runs out, SGLang retracts the running request with the fewest output tokens. Its KV is freed and it goes to the back of the waiting queue, and its stream stops until it is admitted again. SGLang also has an exact simulation, `add_one_req_ignore_eos` ([`:1065`](third_party/sglang_v0_5_18/schedule_policy.py#L1065)). It reserves the full remaining length of `ignore_eos` requests, taking them in finish order, but it runs only when the radix cache is disabled ([`:1213`](third_party/sglang_v0_5_18/schedule_policy.py#L1213)).
+**Mechanism.** SGLang admits a waiting request when its prompt fits next to a reserve for the running requests. With the radix cache on (the default), the reserve per running request is `min(remaining tokens, 4096) × new_token_ratio` ([`schedule_policy.py:654`](../third_party/sglang_v0_5_18/schedule_policy.py#L654)). The ratio decays from 0.7 to a floor of 0.098, so a request that may still generate 10,000 tokens reserves about 400. When the pool runs out, SGLang retracts the running request with the fewest output tokens. Its KV is freed and it goes to the back of the waiting queue, and its stream stops until it is admitted again. SGLang also has an exact simulation, `add_one_req_ignore_eos` ([`:1065`](../third_party/sglang_v0_5_18/schedule_policy.py#L1065)). It reserves the full remaining length of `ignore_eos` requests, taking them in finish order, but it runs only when the radix cache is disabled ([`:1213`](../third_party/sglang_v0_5_18/schedule_policy.py#L1213)).
 
-**Evidence**, from a load sweep on unpatched SGLang (2026-09-07, n=1 per load; [`data/derived/sweep_0907.csv`](data/derived/sweep_0907.csv), [`fig02_sweep_0907.png`](docs/figures/fig02_sweep_0907.png)):
+**Evidence**, from a load sweep on unpatched SGLang (2026-09-07, n=1 per load; [`data/derived/sweep_0907.csv`](../data/derived/sweep_0907.csv), [`fig02_sweep_0907.png`](figures/fig02_sweep_0907.png)):
 
 | Load (req/s) | 0.5 | 0.6 | 0.8 | 1 | 2 | 4 | 8 |
 |---|---|---|---|---|---|---|---|
@@ -76,11 +76,11 @@ Each request's KV grows with every generated token, and the longest answers hold
 | SLO met (%) | <!--n:sweep0907.slo_pct.q0.5-->100.0<!--/n--> | <!--n:sweep0907.slo_pct.q0.6-->100.0<!--/n--> | <!--n:sweep0907.slo_pct.q0.8-->100.0<!--/n--> | <!--n:sweep0907.slo_pct.q1-->100.0<!--/n--> | <!--n:sweep0907.slo_pct.q2-->96.7<!--/n--> | <!--n:sweep0907.slo_pct.q4-->90.0<!--/n--> | <!--n:sweep0907.slo_pct.q8-->88.3<!--/n--> |
 | Goodput (req/s) | <!--n:sweep0907.goodput.q0.5-->0.365<!--/n--> | <!--n:sweep0907.goodput.q0.6-->0.390<!--/n--> | <!--n:sweep0907.goodput.q0.8-->0.407<!--/n--> | <!--n:sweep0907.goodput.q1-->0.425<!--/n--> | <!--n:sweep0907.goodput.q2-->0.407<!--/n--> | <!--n:sweep0907.goodput.q4-->0.379<!--/n--> | <!--n:sweep0907.goodput.q8-->0.365<!--/n--> |
 
-![Load sweep on unpatched SGLang: retractions start at 0.6 req/s, and TTFT p99 and the worst token gap climb with them](docs/figures/fig02_sweep_0907.png)
+![Load sweep on unpatched SGLang: retractions start at 0.6 req/s, and TTFT p99 and the worst token gap climb with them](figures/fig02_sweep_0907.png)
 
 1. **The onset matches capacity.** The Little's-law bound is <!--n:diag.little_lambda_max-->0.56–0.67<!--/n--> req/s. The first retraction appears at <!--n:diag.first_retraction_qps-->0.6<!--/n--> req/s, where KV usage peaks at <!--n:sweep0907.max_usage.q0.6-->0.99<!--/n-->. At 0.5 req/s usage peaks at <!--n:sweep0907.max_usage.q0.5-->0.82<!--/n--> and nothing is retracted.
-2. **One retraction, one stall.** [`analysis/retract_cost.py`](analysis/retract_cost.py) matches every `Retract requests` line in the server logs to the client's token stream. <!--n:diag.stall_match-->89/89<!--/n--> retractions match a gap of more than 5 s (<!--n:diag.stall_match_exact-->87<!--/n--> exactly by time and token count, <!--n:diag.stall_match_approx-->2<!--/n--> approximately), and no such gap is left unmatched. The stalls last <!--n:diag.stall_range_s-->9.1–116.7<!--/n--> s. Every request that missed the SLO in the sweep was a retraction victim (<!--n:diag.slo_violators_all_victims-->30/30<!--/n-->).
-3. **The stall is queueing, not recomputation.** In the <!--n:diag.reprefill_confirmed-->38<!--/n--> cases where the victim's re-prefill can be found in the log, the time from retraction to re-prefill equals the stall within <!--n:diag.reprefill_delay_vs_stall_max_s-->0.90<!--/n--> s. Recomputed prefill is <!--n:diag.recompute_pct_range-->0.22–8.41<!--/n-->% of the tokens processed per run ([`data/derived/retract_cost/`](data/derived/retract_cost/)).
+2. **One retraction, one stall.** [`analysis/retract_cost.py`](../analysis/retract_cost.py) matches every `Retract requests` line in the server logs to the client's token stream. <!--n:diag.stall_match-->89/89<!--/n--> retractions match a gap of more than 5 s (<!--n:diag.stall_match_exact-->87<!--/n--> exactly by time and token count, <!--n:diag.stall_match_approx-->2<!--/n--> approximately), and no such gap is left unmatched. The stalls last <!--n:diag.stall_range_s-->9.1–116.7<!--/n--> s. Every request that missed the SLO in the sweep was a retraction victim (<!--n:diag.slo_violators_all_victims-->30/30<!--/n-->).
+3. **The stall is queueing, not recomputation.** In the <!--n:diag.reprefill_confirmed-->38<!--/n--> cases where the victim's re-prefill can be found in the log, the time from retraction to re-prefill equals the stall within <!--n:diag.reprefill_delay_vs_stall_max_s-->0.90<!--/n--> s. Recomputed prefill is <!--n:diag.recompute_pct_range-->0.22–8.41<!--/n-->% of the tokens processed per run ([`data/derived/retract_cost/`](../data/derived/retract_cost/)).
 4. **Interventions at 2 req/s (2026-09-13).** Every change that admits more conservatively removes the retractions. Turning chunked prefill off changes nothing, and shrinking the KV pool makes the tail worse:
 
 | q2 control (★ = median of 3, others n=1) | Retractions | p99 worst token gap (s) | TTFT p99 (s) | SLO met | Goodput (req/s) |
@@ -111,7 +111,7 @@ After submission the results were re-audited with AI assistance; see [Tools used
 
 ### The gate in five steps
 
-`PrefillAdder._peak_kv_fits` runs inside `add_one_req`, after upstream's own checks. [`patch/README.md`](patch/README.md) describes every hunk.
+`PrefillAdder._peak_kv_fits` runs inside `add_one_req`, after upstream's own checks. [`patch/README.md`](../patch/README.md) describes every hunk.
 
 1. Collect every unfinished running request, every request admitted earlier in this scheduling round, and the candidate.
 2. For each one, compute `left = α × (max_new_tokens − tokens generated)`. Also compute `own`: the KV it holds minus the prefix it shares through the radix cache (`cached_tokens` for running requests, `prefix_indices` for new ones), rounded up to whole pages.
@@ -134,23 +134,23 @@ After submission the results were re-audited with AI assistance; see [Tools used
 - **Chunked prefill.** A chunked prefill admitted this round is credited with its whole prompt at finish, but the part not yet allocated is not modelled as growth. This matters only for prompts longer than 2,048 tokens; W3 prompts are not chunked.
 - **The log counter.** The `#delays` value in the server log is printed at most every 5 s, so the last logged value is a lower bound.
 
-"α = 1 gives zero retractions" is therefore a measurement under W3 conditions (<!--n:reretract.mine_a1.0.logs_without_retraction-->13/13<!--/n--> server logs of α = 1 runs show none), not a guarantee. Upstream's retraction remains the safety net. The [CPU tests](tests/README.md) reproduce each approximation.
+"α = 1 gives zero retractions" is therefore a measurement under W3 conditions (<!--n:reretract.mine_a1.0.logs_without_retraction-->13/13<!--/n--> server logs of α = 1 runs show none), not a guarantee. Upstream's retraction remains the safety net. The [CPU tests](../tests/README.md) reproduce each approximation.
 
 ## Evaluation method
 
-- **Preregistered selection rule.** The [plan](docs/preregistration/plan_2026-09-13.md) was written at 13:59:57 UTC on 2026-09-13. The first measured run started at 15:03:02 UTC ([`data/ledger/w3_queue.log`](data/ledger/w3_queue.log)). The rule: among the α and N settings tried at 2 req/s, keep those with no request stalled more than 5 s (an auxiliary SLO fixed in the plan), then take the lowest TTFT p99. Result: α* = <!--n:select.alpha_star-->1.0<!--/n-->, N* = <!--n:select.n_star-->40<!--/n--> (`python3 -m w3.select_star`). The mean-TPOT SLO alone misses most stalls: <!--n:q2.default.stalled_tpot_ok_range-->14–15<!--/n--> of the <!--n:q2.default.stall5_range-->19–20<!--/n--> stalled requests in each default run still met it. The auxiliary SLO favors a gate built to remove stalls, and the file times are a record, not a proof.
-- **A fresh server for every run.** [`w3/run_one.sh`](w3/run_one.sh) starts a new server for each run (3 warm-up requests, open-loop replay, `/metrics` dump, shutdown). It refuses to start while another server or GPU process is running.
+- **Preregistered selection rule.** The [plan](preregistration/plan_2026-09-13.md) was written at 13:59:57 UTC on 2026-09-13. The first measured run started at 15:03:02 UTC ([`data/ledger/w3_queue.log`](../data/ledger/w3_queue.log)). The rule: among the α and N settings tried at 2 req/s, keep those with no request stalled more than 5 s (an auxiliary SLO fixed in the plan), then take the lowest TTFT p99. Result: α* = <!--n:select.alpha_star-->1.0<!--/n-->, N* = <!--n:select.n_star-->40<!--/n--> (`python3 -m w3.select_star`). The mean-TPOT SLO alone misses most stalls: <!--n:q2.default.stalled_tpot_ok_range-->14–15<!--/n--> of the <!--n:q2.default.stall5_range-->19–20<!--/n--> stalled requests in each default run still met it. The auxiliary SLO favors a gate built to remove stalls, and the file times are a record, not a proof.
+- **A fresh server for every run.** [`w3/run_one.sh`](../w3/run_one.sh) starts a new server for each run (3 warm-up requests, open-loop replay, `/metrics` dump, shutdown). It refuses to start while another server or GPU process is running.
 - **Three repetitions in alternated order.** For the q2 bars, r1 reused the exploration runs (16:04–16:43 UTC), and r2 and r3 ran back to back from 18:33 to 19:05: ablated → patch → default, then patch → default → ablated. The position within a round was default 1-3-2, patch 2-2-1, ablated 3-1-3: alternated, not balanced. Run-to-run goodput spread: default <!--n:q2.default.goodput_spread_pct-->0.24<!--/n-->%, ablated <!--n:q2.ablated.goodput_spread_pct-->1.24<!--/n-->%, patch <!--n:q2.mine.goodput_spread_pct-->0.05<!--/n-->%. All are well below the <!--n:q2.gain.goodput_pct-->+9.1<!--/n-->% difference.
 - **Correctness in deterministic mode.** The output comparisons use `--enable-deterministic-inference --attention-backend triton`. Triton is required: deterministic mode with FlashInfer disables the radix cache, which would change the admission path under test.
-- **Budget.** <!--n:budget.runs-->53<!--/n--> runs (<!--n:budget.runs_ok-->52<!--/n--> OK; <!--n:budget.runs_err-->1<!--/n--> with a client error was excluded and re-run), <!--n:budget.startup_s-->1,571<!--/n--> s of server start-up plus <!--n:budget.replay_s-->17,430<!--/n--> s of replay = <!--n:budget.gpu_hours-->5.28<!--/n--> GPU-h, plus two cross-workload replays of about 9 minutes each. The full timeline is in [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md).
+- **Budget.** <!--n:budget.runs-->53<!--/n--> runs (<!--n:budget.runs_ok-->52<!--/n--> OK; <!--n:budget.runs_err-->1<!--/n--> with a client error was excluded and re-run), <!--n:budget.startup_s-->1,571<!--/n--> s of server start-up plus <!--n:budget.replay_s-->17,430<!--/n--> s of replay = <!--n:budget.gpu_hours-->5.28<!--/n--> GPU-h, plus two cross-workload replays of about 9 minutes each. The full timeline is in [docs/EXPERIMENTS.md](EXPERIMENTS.md).
 
 ## Costs and when not to use it
 
-**Where the wait goes.** With the patch, TTFT is bimodal: in each run <!--n:q2.ttft_bimodal.mine_lt1s-->60<!--/n--> requests start within 1 s and <!--n:q2.ttft_bimodal.mine_ge12s-->60<!--/n--> wait 12 s or more. The median therefore jumps between runs (<!--n:q2.mine.ttft_p50_min-->6.1<!--/n-->–<!--n:q2.mine.ttft_p50_max-->8.1<!--/n--> s), so the tables use the mean and the count of requests that waited more than 10 s ([`fig06_ttft_cdf.png`](docs/figures/fig06_ttft_cdf.png)). Short answers pay the most. The <!--n:q2.short_ttft_p50.n_requests-->9<!--/n--> requests with fewer than 1,000 output tokens see their TTFT p50 go from <!--n:q2.short_ttft_p50.default_s-->0.06<!--/n--> s to <!--n:q2.short_ttft_p50.mine_s-->31.6<!--/n--> s (head-of-line blocking behind long requests). End-to-end latency barely moves: E2E p50 <!--n:q2.default.e2e_p50_s-->86.8<!--/n--> → <!--n:q2.mine.e2e_p50_s-->91.2<!--/n--> s (<!--n:q2.gain.e2e_p50_pct-->+5.0<!--/n-->%), mean <!--n:q2.default.e2e_mean_s-->92.0<!--/n--> → <!--n:q2.mine.e2e_mean_s-->92.3<!--/n--> s (<!--n:q2.gain.e2e_mean_pct-->+0.3<!--/n-->%), p99 <!--n:q2.default.e2e_p99_s-->240.8<!--/n--> → <!--n:q2.mine.e2e_p99_s-->227.3<!--/n--> s (<!--n:q2.gain.e2e_p99_pct-->−5.6<!--/n-->%).
+**Where the wait goes.** With the patch, TTFT is bimodal: in each run <!--n:q2.ttft_bimodal.mine_lt1s-->60<!--/n--> requests start within 1 s and <!--n:q2.ttft_bimodal.mine_ge12s-->60<!--/n--> wait 12 s or more. The median therefore jumps between runs (<!--n:q2.mine.ttft_p50_min-->6.1<!--/n-->–<!--n:q2.mine.ttft_p50_max-->8.1<!--/n--> s), so the tables use the mean and the count of requests that waited more than 10 s ([`fig06_ttft_cdf.png`](figures/fig06_ttft_cdf.png)). Short answers pay the most. The <!--n:q2.short_ttft_p50.n_requests-->9<!--/n--> requests with fewer than 1,000 output tokens see their TTFT p50 go from <!--n:q2.short_ttft_p50.default_s-->0.06<!--/n--> s to <!--n:q2.short_ttft_p50.mine_s-->31.6<!--/n--> s (head-of-line blocking behind long requests). End-to-end latency barely moves: E2E p50 <!--n:q2.default.e2e_p50_s-->86.8<!--/n--> → <!--n:q2.mine.e2e_p50_s-->91.2<!--/n--> s (<!--n:q2.gain.e2e_p50_pct-->+5.0<!--/n-->%), mean <!--n:q2.default.e2e_mean_s-->92.0<!--/n--> → <!--n:q2.mine.e2e_mean_s-->92.3<!--/n--> s (<!--n:q2.gain.e2e_mean_pct-->+0.3<!--/n-->%), p99 <!--n:q2.default.e2e_p99_s-->240.8<!--/n--> → <!--n:q2.mine.e2e_p99_s-->227.3<!--/n--> s (<!--n:q2.gain.e2e_p99_pct-->−5.6<!--/n-->%).
 
-![Trade-off at 2 req/s: every setting that removes retractions raises the mean time to first token](docs/figures/fig04_tradeoff.png)
+![Trade-off at 2 req/s: every setting that removes retractions raises the mean time to first token](figures/fig04_tradeoff.png)
 
-**Other loads and output distributions** (each cell: default / N = 40 / patch; "–" = not run; [`fig03_load_curve.png`](docs/figures/fig03_load_curve.png)):
+**Other loads and output distributions** (each cell: default / N = 40 / patch; "–" = not run; [`fig03_load_curve.png`](figures/fig03_load_curve.png)):
 
 | Condition | Goodput (req/s) | Patch vs default | Retractions | TTFT mean (s) | TTFT p99 (s) | Waited >10 s |
 |---|---|---|---|---|---|---|
@@ -186,9 +186,9 @@ Output comparisons in deterministic mode (`--enable-deterministic-inference --at
 | unpatched vs unpatched, 2 req/s, runs r1 and r2 | <!--n:correct.det_q2up_r1_vs_r2-->115/120<!--/n--> | retraction perturbs outputs even between identical runs; the differing requests are all retraction victims (<!--n:correct.det_q2up_r1_vs_r2_mismatches_in_victims-->5/5<!--/n-->) |
 | unpatched vs patch, both at 2 req/s | <!--n:correct.det_q2up_vs_q2mine-->98/120<!--/n--> (<!--n:correct.det_q2up_vs_q2mine_pct-->81.7<!--/n-->%) | the differing requests (<!--n:correct.mismatches_in_victims-->22/22<!--/n-->) are all among the <!--n:correct.det_q2up_victims-->30<!--/n--> requests that the unpatched run retracted |
 
-In ordinary (non-deterministic) mode, two flag-off runs at the same load agree on only <!--n:correct.nondet_q2default_r1_vs_r2-->20/120<!--/n--> outputs, so that mode cannot serve as a correctness gate. The verify outputs are in [`data/verify/`](data/verify/), and per-request output hashes are in `data/derived/per_request.csv.gz` (`output_sha16`).
+In ordinary (non-deterministic) mode, two flag-off runs at the same load agree on only <!--n:correct.nondet_q2default_r1_vs_r2-->20/120<!--/n--> outputs, so that mode cannot serve as a correctness gate. The verify outputs are in [`data/verify/`](../data/verify/), and per-request output hashes are in `data/derived/per_request.csv.gz` (`output_sha16`).
 
-The [CPU tests](tests/README.md) check the gate's logic against the unmodified SGLang 0.5.18 file in [`third_party/`](third_party/sglang_v0_5_18/). Where the two paths should coincide, the gate's verdict equals upstream `add_one_req_ignore_eos`, run verbatim, in <!--n:patch.equiv_upstream-->19,907/19,907<!--/n--> random states. It equals a token-by-token brute-force simulation in <!--n:patch.equiv_bruteforce-->20,000/20,000<!--/n--> states. Admitted states run without a page-allocation failure in a simulated paged pool in <!--n:patch.equiv_paged_physical-->18,277/18,277<!--/n-->. The tests cover the gate's logic only, not GPU behavior or scheduler integration.
+The [CPU tests](../tests/README.md) check the gate's logic against the unmodified SGLang 0.5.18 file in [`third_party/`](../third_party/sglang_v0_5_18/). Where the two paths should coincide, the gate's verdict equals upstream `add_one_req_ignore_eos`, run verbatim, in <!--n:patch.equiv_upstream-->19,907/19,907<!--/n--> random states. It equals a token-by-token brute-force simulation in <!--n:patch.equiv_bruteforce-->20,000/20,000<!--/n--> states. Admitted states run without a page-allocation failure in a simulated paged pool in <!--n:patch.equiv_paged_physical-->18,277/18,277<!--/n-->. The tests cover the gate's logic only, not GPU behavior or scheduler integration.
 
 ## FAQ
 
@@ -217,7 +217,7 @@ The direction, reserving peak KV conservatively at admission, came from the cour
 
 Steps A to D run on a CPU-only machine with Python 3.12. Step E needs a GPU.
 
-**A. Apply the patch** to SGLang v0.5.18, or clone it already applied: branch [`peak-kv-admission`](https://github.com/HwaminJung00/sglang/tree/peak-kv-admission) of the fork `HwaminJung00/sglang` (commit [`5157a47`](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d) on tag `v0.5.18`). [`patch/README.md`](patch/README.md) also covers an installed wheel (`patch -p2`) and how to revert.
+**A. Apply the patch** to SGLang v0.5.18, or clone it already applied: branch [`peak-kv-admission`](https://github.com/HwaminJung00/sglang/tree/peak-kv-admission) of the fork `HwaminJung00/sglang` (commit [`5157a47`](https://github.com/HwaminJung00/sglang/commit/5157a47e8649c6b3cc43705114fa8ec41d8d733d) on tag `v0.5.18`). [`patch/README.md`](../patch/README.md) also covers an installed wheel (`patch -p2`) and how to revert.
 
 ```bash
 git clone https://github.com/sgl-project/sglang.git && cd sglang
@@ -227,7 +227,7 @@ git apply /path/to/sglang-peak-kv-admission/patch/peak_kv_reservation.diff
 #   --enable-peak-kv-reservation --peak-kv-reserve-ratio 1.0
 ```
 
-**B. CPU tests** (standard library only, under a minute; [`tests/README.md`](tests/README.md)):
+**B. CPU tests** (standard library only, under a minute; [`tests/README.md`](../tests/README.md)):
 
 ```bash
 python3 tests/run_cpu_tests.py                 # prints "all peak-KV unit tests passed"
@@ -243,7 +243,7 @@ python3 -m w3.figures                   # redraws docs/figures/*.png
 python3 tools/check_numbers.py          # every number marker in the docs matches artifacts/*.json
 ```
 
-**D. Raw data** from the GitHub Release `data-v1` (61 MB download, 428 MB unpacked; see [`data/RAW.md`](data/RAW.md)):
+**D. Raw data** from the GitHub Release `data-v1` (61 MB download, 428 MB unpacked; see [`data/RAW.md`](../data/RAW.md)):
 
 ```bash
 bash tools/fetch_raw.sh                 # download, verify, unpack into results/ and logs/
@@ -252,7 +252,7 @@ python3 -m analysis.retract_cost --sweep-0907 --out data/derived/retract_cost --
 python3 -m analysis.headline            # rewrite artifacts/numbers.json
 ```
 
-The complete rebuild sequence, which also regenerates the CSV tables byte for byte, is in [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md#regenerating-the-derived-data).
+The complete rebuild sequence, which also regenerates the CSV tables byte for byte, is in [docs/EXPERIMENTS.md](EXPERIMENTS.md#regenerating-the-derived-data).
 
 **E. Re-run on a GPU** (24 GB class such as an RTX 4090, with `sglang==0.5.18` installed and patched as in A). The course harness is fetched from its public repository and is not redistributed here:
 
@@ -266,9 +266,9 @@ bash w3/run_one.sh traces/reasoning_q2.jsonl results mine_a1.0_r1 \
 bash w3/run_queue.sh w3/queues/p4_final.txt   # the final 3-bar repetitions r2 and r3 (6 runs)
 ```
 
-`w3/run_one.sh` appends a line to `w3/runs.tsv`, the as-run ledger in git. [`data/traces.sha256`](data/traces.sha256) lists the generator command for each trace. If the server log reports a KV pool other than 87,552 tokens (another GPU or driver), the knee moves.
+`w3/run_one.sh` appends a line to `w3/runs.tsv`, the as-run ledger in git. [`data/traces.sha256`](../data/traces.sha256) lists the generator command for each trace. If the server log reports a KV pool other than 87,552 tokens (another GPU or driver), the knee moves.
 
-Maintainers: `git config core.hooksPath .githooks` enables the pre-push hook, and `bash tools/prepublish_check.sh` runs the publication checks ([`tools/README.md`](tools/README.md)).
+Maintainers: `git config core.hooksPath .githooks` enables the pre-push hook, and `bash tools/prepublish_check.sh` runs the publication checks ([`tools/README.md`](../tools/README.md)).
 
 ## Limitations
 
@@ -279,7 +279,7 @@ Maintainers: `git config core.hooksPath .githooks` enables the pre-push hook, an
 - **Cross-workload check.** The five-workload replay ran at low load and the gate fired once (<!--n:cross.gate_fired-->1<!--/n--> logged delay), so it is inconclusive. It does not show that other workloads are unaffected.
 - **Short shared prefix.** At <!--n:trace.shared_prefix_tokens-->36<!--/n--> tokens, this workload cannot show what keeping the radix cache on is worth.
 - **Confounds.** Decode CUDA graphs are captured only for batches ≤ 24. The share of decode steps on a graph was <!--n:q2.default.graph_pct-->55.3<!--/n-->% for default and <!--n:q2.mine.graph_pct-->50.9<!--/n-->% for the patch, so the patch's gain is not a graph effect. N = 24 ran on graphs <!--n:q2.tuned_n24.graph_pct-->100.0<!--/n-->% of the time, which flatters its TPOT. The ablated bar also turns off prefill CUDA graphs.
-- **Order of work.** The patch was written after the load-sweep diagnosis but before the 2 req/s controls (smaller pool, chunked prefill off) were run. Both are in the timeline in [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md).
+- **Order of work.** The patch was written after the load-sweep diagnosis but before the 2 req/s controls (smaller pool, chunked prefill off) were run. Both are in the timeline in [docs/EXPERIMENTS.md](EXPERIMENTS.md).
 - **Test scope.** The CPU tests check the gate's logic, not GPU behavior or the scheduler integration.
 
 ## Repository layout
@@ -292,20 +292,20 @@ w3/            experiment scripts (run_one.sh, run_queue.sh, queues/), metrics, 
 analysis/      retraction-to-stall matching, headline numbers
 artifacts/     numbers.json and equivalence.json: every number the docs quote
 data/          derived tables, verify outputs, run ledger, sample logs, trace hashes (raw data: Release)
-docs/          REPORT.md, REPORT.ko.md, EXPERIMENTS.md, figures/, preregistration/
+docs/          this summary (TECHNICAL_SUMMARY*.md), REPORT.md, REPORT.ko.md, EXPERIMENTS.md, figures/, preregistration/
 tools/         number checker, pre-publication checks, raw-data and course-harness fetchers
 ERRATA.md      corrections to the submitted report
 ```
 
-Data files are described in [`data/README.md`](data/README.md).
+Data files are described in [`data/README.md`](../data/README.md).
 
 ## Credits and provenance
 
 - The study began as an individual assignment in a 5-week LLM inference-engine study (August–September 2026). The course repository is public: [mlleo/inference-engine-study](https://github.com/mlleo/inference-engine-study) (it has no license file; the study used commit `802a164`).
 - The course provided the workload definition, the trace generator, the replay and metrics harness, the experiment protocol, and the hint to explore peak-KV reservation at admission.
-- None of the course's files are in this repository. [`tools/fetch_course_harness.sh`](tools/fetch_course_harness.sh) fetches the harness for GPU re-runs only. [`w3/metrics.py`](w3/metrics.py) re-implements the metric formulas from their specification and was checked against the harness as a black box.
+- None of the course's files are in this repository. [`tools/fetch_course_harness.sh`](../tools/fetch_course_harness.sh) fetches the harness for GPU re-runs only. [`w3/metrics.py`](../w3/metrics.py) re-implements the metric formulas from their specification and was checked against the harness as a black box.
 - The course repository's instructor-only solution folder (`bp/step3/`) was not consulted; the preregistered plan says so in its header.
-- SGLang (Apache-2.0, Copyright SGLang Team) and Qwen3-4B (Apache-2.0, Copyright Alibaba Cloud): see [NOTICE](NOTICE) and [THIRD_PARTY.md](THIRD_PARTY.md). This repository is not affiliated with the SGLang project.
+- SGLang (Apache-2.0, Copyright SGLang Team) and Qwen3-4B (Apache-2.0, Copyright Alibaba Cloud): see [NOTICE](../NOTICE) and [THIRD_PARTY.md](../THIRD_PARTY.md). This repository is not affiliated with the SGLang project.
 
 ## Tools used
 
@@ -313,6 +313,6 @@ The original study — patch, experiments, analysis scripts and report — was d
 
 ## License
 
-- Code, the patch and the tests: Apache License 2.0 ([LICENSE](LICENSE)).
-- Documentation, figures and derived data: CC BY 4.0 ([LICENSE-docs](LICENSE-docs) lists the paths).
-- Third-party material keeps its own license ([NOTICE](NOTICE), [THIRD_PARTY.md](THIRD_PARTY.md)). The raw-data release contains text generated by Qwen3-4B (Apache-2.0).
+- Code, the patch and the tests: Apache License 2.0 ([LICENSE](../LICENSE)).
+- Documentation, figures and derived data: CC BY 4.0 ([LICENSE-docs](../LICENSE-docs) lists the paths).
+- Third-party material keeps its own license ([NOTICE](../NOTICE), [THIRD_PARTY.md](../THIRD_PARTY.md)). The raw-data release contains text generated by Qwen3-4B (Apache-2.0).

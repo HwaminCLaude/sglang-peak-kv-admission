@@ -139,7 +139,7 @@ The study's own unit test (`[4]`) catches four of the ten.
 
 ## What is not verified
 
-- **GPU behaviour and performance.** Nothing here runs a model, a CUDA graph or a kernel. Throughput, latency, goodput and retraction counts in the README come from the GPU runs (`data/`), not from these tests. `--bench` times the Python function on the host CPU only.
+- **GPU behaviour and performance.** Nothing here runs a model, a CUDA graph or a kernel. Throughput, latency, goodput and retraction counts in the README and the technical summary come from the GPU runs (`data/`), not from these tests. `--bench` times the Python function on the host CPU only.
 - **The KV allocator and the radix tree.** `cur_rem_tokens`, `cached_tokens` and `prefix_indices` are inputs to the stubs, not values computed by SGLang. Eviction, `_lock_node` locking and page allocation are not exercised, apart from the toy pools in [P] and [L].
 - **Real scheduler integration.** `scheduler.py` and `server_args.py` are not executed. Their hunks are checked only structurally from the diff text in step [3]; CI also checks that the whole diff applies to the wheel. The following are not tested:
   - the `get_schedule()` wiring and flag parsing;

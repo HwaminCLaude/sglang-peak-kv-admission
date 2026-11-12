@@ -12,7 +12,7 @@ English · [한국어](REPORT.ko.md)
 | Engine | SGLang v0.5.18 (`71de97b`) + [`patch/peak_kv_reservation.diff`](../patch/peak_kv_reservation.diff) (+<!--n:patch.lines_added-->102<!--/n-->/−<!--n:patch.lines_removed-->0<!--/n--> lines, flag off by default) |
 | Model · GPU | Qwen/Qwen3-4B (bf16) · RTX 4090 24 GB · KV pool <!--n:kv.pool_tokens-->87,552<!--/n--> tokens |
 
-**Provenance and tools.** This work began as an individual assignment in a 5-week LLM inference-engine study (August–September 2026). The course repository [mlleo/inference-engine-study](https://github.com/mlleo/inference-engine-study) provided the workload definition, the trace generator, the replay and metrics harness, and the hint to explore peak-KV reservation. None of its files are included in this repository. The instructor's solution material was not consulted (recorded in the preregistered plan). The bottleneck analysis, the patch, the experiment automation, the verification and the report are my own work. For this corrected edition, an AI coding assistant helped with the recomputation, verification and documentation ([Tools used in the README](../README.md#tools-used)).
+**Provenance and tools.** This work began as an individual assignment in a 5-week LLM inference-engine study (August–September 2026). The course repository [mlleo/inference-engine-study](https://github.com/mlleo/inference-engine-study) provided the workload definition, the trace generator, the replay and metrics harness, and the hint to explore peak-KV reservation. None of its files are included in this repository. The instructor's solution material was not consulted (recorded in the preregistered plan). The bottleneck analysis, the patch, the experiment automation, the verification and the report are my own work. For this corrected edition, an AI coding assistant helped with the recomputation, verification and documentation ([Tools used in the technical summary](TECHNICAL_SUMMARY.md#tools-used)).
 
 **How to read this report.**
 
@@ -21,7 +21,7 @@ English · [한국어](REPORT.ko.md)
   - `upstream`: unpatched SGLang 0.5.18 (09-13).
   - `default`: the patched build with the flag off (09-13). Section 3.3 gives the evidence that it behaves like upstream.
   - `ablated`: default + `--chunked-prefill-size -1`.
-  - `mine`: the patch flag on (`--enable-peak-kv-reservation`), with α = 1.0 unless stated otherwise. The figures and the README call this bar "patch".
+  - `mine`: the patch flag on (`--enable-peak-kv-reservation`), with α = 1.0 unless stated otherwise. The figures, the README and the technical summary call this bar "patch".
   - `tuned N`: `--max-running-requests N`.
   - `noradix`: `--disable-radix-cache`.
   - `cap65k`: `--max-total-tokens 65536`.
