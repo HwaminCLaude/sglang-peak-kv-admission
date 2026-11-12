@@ -40,7 +40,7 @@ With the default settings, SGLang reserves only `min(remaining tokens, 4096) × 
 1. **One retraction, one stall.** In the <!--n:diag.stall_match-->89/89<!--/n--> match above, no stall was left unmatched (one run per load).
 2. **Retractions begin near the computed limit.** The highest arrival rate the KV pool can sustain without retraction, computed from its size and the answer lengths, is <!--n:diag.little_lambda_max-->0.56–0.67<!--/n--> req/s. In the sweep there were no retractions at 0.5 req/s, and the first came at <!--n:diag.first_retraction_qps-->0.6<!--/n--> req/s.
 3. **The stall is time spent waiting in the queue, not recomputation.** In the <!--n:diag.reprefill_confirmed-->38<!--/n--> cases where the log shows when the retracted request ran again, the time from the retraction to that moment was within <!--n:diag.reprefill_delay_vs_stall_max_s-->0.90<!--/n--> s of the stall.
-4. **At 2 req/s, admitting more conservatively removes the retractions.** None of the three methods in the table had any, while a comparison run that turned off chunked prefill, which should be unrelated, still had them ([numbers in the technical summary](docs/TECHNICAL_SUMMARY.md#diagnosis-why-long-answers-stall)).
+4. **At 2 req/s, admitting conservatively enough removes the retractions.** None of the three methods in the table had any, while a comparison run that turned off chunked prefill, which should be unrelated, still had them ([numbers in the technical summary](docs/TECHNICAL_SUMMARY.md#diagnosis-why-long-answers-stall)).
 
 ## What this result does not show
 
