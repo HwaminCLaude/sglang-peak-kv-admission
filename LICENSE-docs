@@ -11,7 +11,8 @@ This license applies to the following paths:
     data/            data documentation (README.md, RAW.md), derived data
                      (summary tables and generated reports), output-comparison
                      results, run ledger, server-log samples, trace checksums
-    README*.md       README.md and README.ko.md
+    README*.md       README.md (Korean), README.en.md (English) and the
+                     pointer file README.ko.md
     release data-v1  the raw-data assets of the GitHub release "data-v1"
                      (generated texts inside were produced with Qwen/Qwen3-4B,
                      Apache-2.0; see NOTICE)
